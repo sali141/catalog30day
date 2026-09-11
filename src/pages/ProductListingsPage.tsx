@@ -829,7 +829,10 @@ function PriceComponentFields({
             label="Tax ID"
             rules={[{ required: true, message: 'Enter a tax ID' }]}
           >
-            <Input placeholder="e.g. 13/622" />
+            <Input
+              placeholder="e.g. 13/622"
+              readOnly={!!allowServiceLevelRevenueAllocation}
+            />
           </Form.Item>
         </div>
         {pricingType === 'Reccuring' ? (
