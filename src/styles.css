@@ -335,7 +335,7 @@ body {
 
 .form-card.ant-card > .ant-card-head > .ant-card-head-wrapper {
   border-bottom: 1px solid var(--color-border-secondary);
-  padding-bottom: calc(var(--space-sm) + var(--space-xs));
+  padding-block: var(--space-md);
 }
 
 .form-card .ant-card-head-title {
@@ -344,79 +344,6 @@ body {
 
 .form-card .ant-card-body {
   padding-top: var(--space-lg);
-}
-
-.offer-type-picker {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.offer-type-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.offer-type-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  width: 100%;
-  padding: 16px;
-  font: inherit;
-  text-align: left;
-  color: inherit;
-  background: var(--color-bg-container);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  appearance: none;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.offer-type-card:hover {
-  border-color: var(--color-primary);
-}
-
-.offer-type-card.selected {
-  background: var(--color-primary-bg);
-  border-color: var(--color-primary);
-}
-
-.offer-type-card-icon {
-  display: inline-flex;
-  margin-bottom: 8px;
-  font-size: 20px;
-  color: var(--color-text-secondary);
-}
-
-.offer-type-card-title {
-  display: block;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-}
-
-.offer-type-card-description {
-  display: block;
-  font-size: var(--font-size-caption);
-  line-height: var(--line-height-caption);
-}
-
-.offer-type-info-alert {
-  margin-bottom: 0;
-}
-
-.policy-override-section {
-  margin-top: 8px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border-secondary);
-}
-
-.policy-override-title {
-  display: block;
-  margin-bottom: 12px;
 }
 
 .policy-override-grid {
@@ -432,10 +359,6 @@ body {
   gap: 12px;
   width: 50%;
   max-width: 50%;
-  padding: 16px;
-  background: #f0f5ff;
-  border: 1px solid #d6e4ff;
-  border-radius: var(--radius-md);
 }
 
 .pricing-tier-dimension {
@@ -446,10 +369,6 @@ body {
 
 .pricing-tier-table {
   width: 100%;
-}
-
-.pricing-tier-table .ant-table-thead > tr > th {
-  background: #e6f0ff;
 }
 
 .revenue-allocation-panel {
@@ -488,8 +407,35 @@ body {
   max-width: 720px;
 }
 
+/* Outline the table as one block without bringing back per-row dividers. */
+.service-split-table .ant-table {
+  overflow: hidden;
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+}
+
+/* Inset from the outline: wider outer columns, and room above the first and below the last row.
+   Prefixed with the wrapper and size classes to outrank Ant's small-table cell padding. */
+.service-split-table.ant-table-wrapper .ant-table-small .ant-table-thead > tr > th:first-child,
+.service-split-table.ant-table-wrapper .ant-table-small .ant-table-tbody > tr > td:first-child {
+  padding-inline-start: var(--space-md);
+}
+
+.service-split-table.ant-table-wrapper .ant-table-small .ant-table-thead > tr > th:last-child,
+.service-split-table.ant-table-wrapper .ant-table-small .ant-table-tbody > tr > td:last-child {
+  padding-inline-end: var(--space-md);
+}
+
+.service-split-table.ant-table-wrapper .ant-table-small .ant-table-tbody > tr:first-child > td {
+  padding-top: calc(var(--space-sm) + var(--space-xs));
+}
+
+.service-split-table.ant-table-wrapper .ant-table-small .ant-table-tbody > tr:last-child > td {
+  padding-bottom: calc(var(--space-sm) + var(--space-xs));
+}
+
 .additional-lines-panel {
-  margin-top: 4px;
+  margin-top: var(--space-md);
 }
 
 .additional-lines-panel .ant-collapse-header {
@@ -528,17 +474,6 @@ body {
   align-items: start;
 }
 
-.component-price-card {
-  padding: 24px;
-  background: #f4f4f5;
-  border: 1px solid #8a8f98;
-  border-radius: var(--radius-md);
-}
-
-.component-price-heading {
-  margin-bottom: 20px;
-}
-
 .component-price-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -574,28 +509,36 @@ body {
   gap: var(--telco-space-lg);
 }
 
-.listing-progress-panel .ant-card-body,
-.listing-sections-panel .ant-card-body {
+.listing-progress-panel .ant-card-body {
   padding: var(--space-md);
 }
 
-.listing-progress-panel .ant-steps-item-title,
-.listing-progress-panel .ant-steps-item-description {
+.listing-progress-panel .ant-steps-item-title {
   font-size: var(--font-size-body);
 }
 
-.listing-section-link.ant-btn {
-  display: block;
-  width: 100%;
-  height: auto;
-  padding: 4px 8px;
-  color: var(--color-text);
-  text-align: left;
+/* The anchor sits inside a step, so the step's connector is already the
+   vertical line here; drop the anchor's own rail so there aren't two. */
+.listing-progress-panel .listing-step-anchor .ant-anchor::before {
+  border-inline-start: none;
 }
 
-.listing-section-link.ant-btn:hover {
+.listing-step-anchor.ant-anchor-wrapper {
+  margin-block: var(--space-sm) var(--space-xs);
+}
+
+.listing-step-anchor .ant-anchor-link {
+  padding-block: 5px;
+  padding-inline-start: var(--space-md);
+}
+
+.listing-progress-panel .listing-step-anchor .ant-anchor-link-title {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.listing-progress-panel .listing-step-anchor .ant-anchor-link-title-active {
   color: var(--color-primary);
-  background: var(--color-primary-bg);
 }
 
 .flow-actions {
@@ -742,6 +685,7 @@ body {
   display: none;
 }
 
+/* These tables hold inputs in every cell; row dividers under bordered fields read as clutter. */
 .line-tier-table .ant-table-tbody > tr > td {
   border-bottom: none;
 }

@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  AppstoreAddOutlined,
   ArrowLeftOutlined,
   BarsOutlined,
   DeleteOutlined,
-  HomeOutlined,
-  InfoCircleOutlined,
   MoreOutlined,
   PlusOutlined,
   SearchOutlined,
 } from '@ant-design/icons'
 import {
-  Alert,
+  Anchor,
   App,
   Breadcrumb,
   Button,
@@ -165,34 +162,10 @@ const OFFER_SUBTYPE_OPTIONS: Partial<Record<OfferType, OfferSubType[]>> = {
   BASE_PLAN: ['FIXED_DATA_TIER', 'UNLIMITED_TIER', 'ASSET_ANCHORED'],
 }
 
-const OFFER_TYPE_CARDS: Array<{
-  value: OfferType
-  title: string
-  description: string
-  icon: ReactNode
-  info: string
-}> = [
-  {
-    value: 'BASE_PLAN',
-    title: 'Base plan',
-    description: 'Subscriber anchor',
-    icon: <HomeOutlined />,
-    info: 'Base plan — creates a mobile line anchor. Service type: MOBILE_LINE_ACCESS.',
-  },
-  {
-    value: 'ADD_ON',
-    title: 'Add-on',
-    description: 'Requires anchor',
-    icon: <AppstoreAddOutlined />,
-    info: 'Add-on — attaches to an existing base plan anchor.',
-  },
-  {
-    value: 'MIXED_BUNDLE',
-    title: 'Mixed Bundle',
-    description: 'Combined offer',
-    icon: <BarsOutlined />,
-    info: 'Mixed Bundle — combines multiple products or services into a single offer.',
-  },
+const OFFER_TYPE_OPTIONS: Array<{ value: OfferType; label: string }> = [
+  { value: 'BASE_PLAN', label: 'Base plan' },
+  { value: 'ADD_ON', label: 'Add-on' },
+  { value: 'MIXED_BUNDLE', label: 'Mixed Bundle' },
 ]
 
 function offerSubtypesForType(offerType?: OfferType): OfferSubType[] {
@@ -201,8 +174,8 @@ function offerSubtypesForType(offerType?: OfferType): OfferSubType[] {
 }
 
 function offerTypeTitle(offerType?: OfferType): string {
-  const card = OFFER_TYPE_CARDS.find((item) => item.value === offerType)
-  return card?.title ?? 'Base plan'
+  const option = OFFER_TYPE_OPTIONS.find((item) => item.value === offerType)
+  return option?.label ?? 'Base plan'
 }
 
 function offerCodeFromTitle(title: string): string {
@@ -217,7 +190,6 @@ function OfferTypePicker({
   onChange?: (value: OfferType) => void
 }) {
   const form = Form.useFormInstance<ListingFormValues>()
-  const selected = OFFER_TYPE_CARDS.find((card) => card.value === value) ?? OFFER_TYPE_CARDS[0]
 
   const handleSelect = (nextValue: OfferType) => {
     const subtypes = offerSubtypesForType(nextValue)
@@ -231,34 +203,12 @@ function OfferTypePicker({
   }
 
   return (
-    <div className="offer-type-picker">
-      <div className="offer-type-grid">
-        {OFFER_TYPE_CARDS.map((card) => {
-          const isSelected = value === card.value
-          return (
-            <button
-              key={card.value}
-              type="button"
-              className={`offer-type-card${isSelected ? ' selected' : ''}`}
-              onClick={() => handleSelect(card.value)}
-            >
-              <span className="offer-type-card-icon">{card.icon}</span>
-              <Typography.Text className="offer-type-card-title">{card.title}</Typography.Text>
-              <Typography.Text type="secondary" className="offer-type-card-description">
-                {card.description}
-              </Typography.Text>
-            </button>
-          )
-        })}
-      </div>
-      <Alert
-        className="offer-type-info-alert"
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        message={selected.info}
-      />
-    </div>
+    <Select
+      value={value}
+      placeholder="Select an offer type"
+      options={OFFER_TYPE_OPTIONS}
+      onChange={handleSelect}
+    />
   )
 }
 
@@ -731,24 +681,20 @@ function PriceComponentFields({
   }
 
   return (
-    <div className="component-price-card">
-      <Flex justify="space-between" align="center" className="component-price-heading">
-        {field.name === 0 ? (
-          <Flex align="center" gap={8} wrap="wrap">
-            {primaryComponentName ? (
-              <Typography.Text strong>{primaryComponentName}</Typography.Text>
-            ) : null}
-            <Tag color="blue">{offerTypeLabel}</Tag>
-          </Flex>
-        ) : (
-          <Typography.Text strong>{componentTitle}</Typography.Text>
-        )}
-        {canRemove ? (
-          <Button type="text" danger icon={<DeleteOutlined />} onClick={onRemove}>
-            Remove
-          </Button>
-        ) : null}
-      </Flex>
+    <Card
+      type="inner"
+      title={field.name === 0 ? (
+        <Flex align="center" gap={8} wrap="wrap">
+          {primaryComponentName ? <span>{primaryComponentName}</span> : null}
+          <Tag color="blue">{offerTypeLabel}</Tag>
+        </Flex>
+      ) : componentTitle}
+      extra={canRemove ? (
+        <Button type="text" icon={<DeleteOutlined />} onClick={onRemove}>
+          Remove
+        </Button>
+      ) : null}
+    >
       <div className="form-grid">
         <Form.Item name={[field.name, 'pricingBasis']} hidden initialValue="Flat">
           <Input />
@@ -1201,40 +1147,38 @@ function PriceComponentFields({
           ) : null}
         </div>
       </div>
-      <div className="policy-override-section">
-        <Typography.Text strong className="policy-override-title">Policy Override</Typography.Text>
-        <div className="policy-override-grid">
-          <Form.Item
-            name={[field.name, 'paymentPolicy']}
-            label="Payment Policy"
-            rules={[{ required: true, message: 'Select a payment policy' }]}
-          >
-            <Select options={PAYMENT_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'chargingPolicy']}
-            label="Charging Policy"
-            rules={[{ required: true, message: 'Select a charging policy' }]}
-          >
-            <Select options={CHARGING_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'billingPolicy']}
-            label="Billing Policy"
-            rules={[{ required: true, message: 'Select a billing policy' }]}
-          >
-            <Select options={BILLING_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'prorationPolicy']}
-            label="Proration Policy"
-            rules={[{ required: true, message: 'Select a proration policy' }]}
-          >
-            <Select options={PRORATION_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-        </div>
+      <Divider plain>Policy Override</Divider>
+      <div className="policy-override-grid">
+        <Form.Item
+          name={[field.name, 'paymentPolicy']}
+          label="Payment Policy"
+          rules={[{ required: true, message: 'Select a payment policy' }]}
+        >
+          <Select options={PAYMENT_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
+        </Form.Item>
+        <Form.Item
+          name={[field.name, 'chargingPolicy']}
+          label="Charging Policy"
+          rules={[{ required: true, message: 'Select a charging policy' }]}
+        >
+          <Select options={CHARGING_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
+        </Form.Item>
+        <Form.Item
+          name={[field.name, 'billingPolicy']}
+          label="Billing Policy"
+          rules={[{ required: true, message: 'Select a billing policy' }]}
+        >
+          <Select options={BILLING_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
+        </Form.Item>
+        <Form.Item
+          name={[field.name, 'prorationPolicy']}
+          label="Proration Policy"
+          rules={[{ required: true, message: 'Select a proration policy' }]}
+        >
+          <Select options={PRORATION_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
+        </Form.Item>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -1382,6 +1326,12 @@ export function ProductListingsPage() {
     ?? selectedCatalogProduct?.name
     ?? displayName
   const pricingProductName = selectedItemName
+  const offerDetailsSectionNavItems = [
+    { key: 'basics', href: '#listing-section-basics', title: 'Offer Details' },
+    // The Payment card is not rendered for merchandise, so its link would scroll to nothing.
+    ...(selectedIsMerchandise ? [] : [{ key: 'purchase', href: '#listing-section-purchase', title: 'Payment' }]),
+    { key: 'policies', href: '#listing-section-policies', title: 'Policies' },
+  ]
   const pricingMaxLines = Math.max(1, Number(watchedMaxLines ?? form.getFieldValue('maxLines') ?? offerMaxLines) || 1)
 
   useEffect(() => {
@@ -1919,7 +1869,7 @@ export function ProductListingsPage() {
                           />
                         ))}
                         <Button type="dashed" icon={<PlusOutlined />} onClick={() => add(defaultAdditionalPriceComponent())} block>
-                          Add Pricing
+                          Add price component
                         </Button>
                       </Space>
                     )}
@@ -2076,26 +2026,26 @@ export function ProductListingsPage() {
 
           <div className="listing-rails">
             <Card className="listing-progress-panel" title="Progress" size="small">
-              <Steps current={step} orientation="vertical" items={stepItems.map(({ title }) => ({ title }))} />
+              <Steps
+                current={step}
+                orientation="vertical"
+                size="small"
+                items={stepItems.map(({ title }, index) => ({
+                  title,
+                  // The step's own sections nest under it, only while that step is open.
+                  description: index === step && index === 0
+                    ? (
+                      <Anchor
+                        affix={false}
+                        className="listing-step-anchor"
+                        targetOffset={24}
+                        items={offerDetailsSectionNavItems}
+                      />
+                    )
+                    : undefined,
+                }))}
+              />
             </Card>
-            {step === 0 ? (
-              <Card className="listing-sections-panel" title="Listing sections" size="small">
-                {[
-                  ['listing-section-basics', 'Offer Details'],
-                  ['listing-section-purchase', 'Payment'],
-                  ['listing-section-policies', 'Policies'],
-                ].map(([id, label]) => (
-                  <Button
-                    className="listing-section-link"
-                    key={id}
-                    type="text"
-                    onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </Card>
-            ) : null}
           </div>
         </div>
       </Form>
