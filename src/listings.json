@@ -1,0 +1,448 @@
+[
+  {
+    "key": "cci-aarp-2line",
+    "name": "Unlimited for AARP 2+ lines - CCI",
+    "code": "listing-cci-3",
+    "listingType": "Base plan",
+    "product": "Unlimited AARP Plan",
+    "categories": [
+      "Family Plans"
+    ],
+    "price": "$45.00/mo - $120.00/mo",
+    "priceRange": {
+      "min": "$45.00",
+      "max": "$120.00"
+    },
+    "variantCount": 3,
+    "promotionCount": 1,
+    "status": "Active",
+    "lastUpdated": "2026-02-26",
+    "updatedBy": "CCI catalog"
+  },
+  {
+    "key": "cci-pers",
+    "name": "PERS Device + Service - CCI",
+    "code": "listing-cci-4",
+    "listingType": "Bundle offer",
+    "product": "PERS Bundle",
+    "categories": [
+      "Devices",
+      "Mobile Plans"
+    ],
+    "price": "$99.00 + $25.00/mo",
+    "promotionCount": 0,
+    "status": "Draft",
+    "lastUpdated": "2026-02-26",
+    "updatedBy": "CCI catalog"
+  },
+  {
+    "key": "cci-unlimited-50",
+    "name": "Unlimited 50+ - CCI",
+    "code": "listing-cci-2",
+    "listingType": "Base plan",
+    "product": "Unlimited 50+ Plan",
+    "categories": [
+      "Mobile Plans"
+    ],
+    "price": "$55.00/mo",
+    "promotionCount": 2,
+    "status": "Active",
+    "lastUpdated": "2026-02-25",
+    "updatedBy": "CCI catalog"
+  },
+  {
+    "key": "cci-minimalist",
+    "name": "Minimalist - CCI",
+    "code": "listing-cci-1",
+    "listingType": "Base plan",
+    "product": "Minimalist Plan",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$20.00/mo",
+    "promotionCount": 1,
+    "status": "Active",
+    "lastUpdated": "2026-02-24",
+    "updatedBy": "CCI catalog"
+  },
+  {
+    "key": "listing-5",
+    "name": "Gift Card $50 - Online",
+    "code": "listing-5",
+    "listingType": "Merchandise item",
+    "product": "Amazon Gift Card",
+    "categories": [
+      "Gift Cards"
+    ],
+    "price": "$50.00",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-12",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-17",
+    "name": "Smart Home Bundle",
+    "code": "listing-17",
+    "listingType": "Bundle offer",
+    "product": "Router + IoT Plan",
+    "categories": [
+      "Networking Devices",
+      "IoT Plans"
+    ],
+    "price": "$199 + $29.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-12",
+    "updatedBy": "John Davis"
+  },
+  {
+    "key": "listing-24",
+    "name": "Streaming Bundle Plus",
+    "code": "listing-24",
+    "listingType": "Bundle offer",
+    "product": "Unlimited + Netflix Premium",
+    "categories": [
+      "Entertainment"
+    ],
+    "price": "$89.99/mo",
+    "promotionCount": 0,
+    "status": "Draft",
+    "lastUpdated": "2024-02-12",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-2",
+    "name": "5G Unlimited - Retail",
+    "code": "listing-2",
+    "listingType": "Bundle offer",
+    "product": "5G Unlimited Plan + T-Shirt",
+    "categories": [
+      "Mobile Plans",
+      "Apparel"
+    ],
+    "price": "$59.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-11",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-6",
+    "name": "5G Basic Plan",
+    "code": "listing-6",
+    "listingType": "Base plan",
+    "product": "5G Basic Plan",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$29.99/mo",
+    "priceRange": {
+      "min": "$19.99/mo",
+      "max": "$39.99/mo"
+    },
+    "variantCount": 3,
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-11",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-10",
+    "name": "Student Plan Special",
+    "code": "listing-10",
+    "listingType": "Base plan",
+    "product": "5G Student Plan 20GB",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$24.99/mo",
+    "promotionCount": 0,
+    "status": "Draft",
+    "lastUpdated": "2024-02-11",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-15",
+    "name": "Family Plan Mega Bundle",
+    "code": "listing-15",
+    "listingType": "Bundle offer",
+    "product": "4 Lines + 2 Phones",
+    "categories": [
+      "Family Plans"
+    ],
+    "price": "$139.99/mo",
+    "promotionCount": 0,
+    "status": "Draft",
+    "lastUpdated": "2024-02-11",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-21",
+    "name": "Premium Phone Protection",
+    "code": "listing-21",
+    "listingType": "Base plan",
+    "product": "Device Insurance Plan",
+    "categories": [
+      "Insurance"
+    ],
+    "price": "$12.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-11",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-1",
+    "name": "iPhone 14 - Online Store",
+    "code": "listing-1",
+    "listingType": "Merchandise item",
+    "product": "iPhone 14 128GB",
+    "categories": [
+      "Devices"
+    ],
+    "price": "$799.00",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-10",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-7",
+    "name": "5G Pro Plan - Online",
+    "code": "listing-7",
+    "listingType": "Base plan",
+    "product": "5G Pro Plan 50GB",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$49.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-10",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-12",
+    "name": "Gaming Bundle Pro",
+    "code": "listing-12",
+    "listingType": "Bundle offer",
+    "product": "Console + Unlimited Plan",
+    "categories": [
+      "Gaming Devices",
+      "Mobile Plans"
+    ],
+    "price": "$899 + $59.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-10",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-19",
+    "name": "Business Plan Standard",
+    "code": "listing-19",
+    "listingType": "Add-on",
+    "product": "5G Business 100GB",
+    "categories": [
+      "Business Plans"
+    ],
+    "price": "$89.99/mo",
+    "promotionCount": 0,
+    "status": "Draft",
+    "lastUpdated": "2024-02-10",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-4",
+    "name": "Smart Watch Launch Edition",
+    "code": "listing-4",
+    "listingType": "Merchandise item",
+    "product": "Smart Watch Pro",
+    "categories": [
+      "Electronics"
+    ],
+    "price": "$399.00",
+    "promotionCount": 0,
+    "status": "Draft",
+    "lastUpdated": "2024-02-09",
+    "updatedBy": "John Davis"
+  },
+  {
+    "key": "listing-8",
+    "name": "Unlimited Data Plan - Premium",
+    "code": "listing-8",
+    "listingType": "Base plan",
+    "product": "Unlimited Everything",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$79.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-09",
+    "updatedBy": "John Davis"
+  },
+  {
+    "key": "listing-13",
+    "name": "Wireless Earbuds - Retail",
+    "code": "listing-13",
+    "listingType": "Merchandise item",
+    "product": "Premium Wireless Earbuds",
+    "categories": [
+      "Accessories"
+    ],
+    "price": "$149.00",
+    "priceRange": {
+      "min": "$99.00",
+      "max": "$199.00"
+    },
+    "variantCount": 4,
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-09",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-22",
+    "name": "Fitness Tracker - Special Offer",
+    "code": "listing-22",
+    "listingType": "Merchandise item",
+    "product": "Fitness Band Pro",
+    "categories": [
+      "Electronics"
+    ],
+    "price": "$79.00",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-09",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-3",
+    "name": "Premium Headphones - Special",
+    "code": "listing-3",
+    "listingType": "Merchandise item",
+    "product": "Wireless Noise-Canceling Headphones",
+    "categories": [
+      "Accessories"
+    ],
+    "price": "$249.00",
+    "promotionCount": 2,
+    "status": "Active",
+    "lastUpdated": "2024-02-08",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-11",
+    "name": "Smart Home Bundle",
+    "code": "listing-11",
+    "listingType": "Bundle offer",
+    "product": "Smart Home Devices + Connectivity",
+    "categories": [
+      "Devices",
+      "IoT Plans"
+    ],
+    "price": "$599 + $19.99/mo",
+    "priceRange": {
+      "min": "$149 + $29.99/mo",
+      "max": "$299 + $29.99/mo"
+    },
+    "variantCount": 2,
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-08",
+    "updatedBy": "John Davis"
+  },
+  {
+    "key": "listing-18",
+    "name": "International Roaming Add-on",
+    "code": "listing-18",
+    "listingType": "Add-on",
+    "product": "Global Roaming 30 Days",
+    "categories": [
+      "Add-ons"
+    ],
+    "price": "$39.99",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-08",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-9",
+    "name": "Data Only Plan - IoT",
+    "code": "listing-9",
+    "listingType": "Add-on",
+    "product": "5G Data 5GB",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$15.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-07",
+    "updatedBy": "Sarah Chen"
+  },
+  {
+    "key": "listing-23",
+    "name": "Backup Line Plan",
+    "code": "listing-23",
+    "listingType": "Add-on",
+    "product": "5G Backup 2GB",
+    "categories": [
+      "Data Plans"
+    ],
+    "price": "$9.99/mo",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-07",
+    "updatedBy": "John Davis"
+  },
+  {
+    "key": "listing-16",
+    "name": "Prepaid SIM - Online",
+    "code": "listing-16",
+    "listingType": "Add-on",
+    "product": "Prepaid SIM Card",
+    "categories": [
+      "SIM Cards"
+    ],
+    "price": "$9.99",
+    "promotionCount": 0,
+    "status": "Active",
+    "lastUpdated": "2024-02-06",
+    "updatedBy": "Mike Thompson"
+  },
+  {
+    "key": "listing-14",
+    "name": "Laptop Promo - Limited",
+    "code": "listing-14",
+    "listingType": "Merchandise item",
+    "product": "MacBook Air M2",
+    "categories": [
+      "Electronics"
+    ],
+    "price": "$1,199.00",
+    "promotionCount": 0,
+    "status": "Archived",
+    "lastUpdated": "2024-01-30",
+    "updatedBy": "John Davis"
+  },
+  {
+    "key": "listing-20",
+    "name": "Kids Watch Bundle",
+    "code": "listing-20",
+    "listingType": "Bundle offer",
+    "product": "Smart Watch + Kids Plan",
+    "categories": [
+      "Wearables",
+      "Mobile Plans"
+    ],
+    "price": "$199 + $14.99/mo",
+    "promotionCount": 0,
+    "status": "Archived",
+    "lastUpdated": "2024-01-25",
+    "updatedBy": "John Davis"
+  }
+]

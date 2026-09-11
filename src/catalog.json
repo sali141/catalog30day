@@ -1,0 +1,309 @@
+[
+  {
+    "key": "product:prod-1001",
+    "kind": "product",
+    "name": "Premium Cotton T-Shirt",
+    "secondary": "Apparel",
+    "typeLabel": "Merchandise",
+    "category": "Apparel",
+    "status": "Active",
+    "updatedAt": "2026-02-26",
+    "owner": "Maya Chen",
+    "variantCount": 2,
+    "usedInOffers": 3,
+    "usedInBundles": 2
+  },
+  {
+    "key": "product:prod-1002",
+    "kind": "product",
+    "name": "Wireless Noise-Canceling Headphones",
+    "secondary": "Consumer electronics",
+    "typeLabel": "Merchandise",
+    "category": "Audio",
+    "status": "Review",
+    "updatedAt": "2026-02-27",
+    "owner": "Arjun Mehta",
+    "variantCount": 2,
+    "usedInOffers": 2,
+    "usedInBundles": 1
+  },
+  {
+    "key": "product:prod-1003",
+    "kind": "product",
+    "name": "Laptop Sleeve Pro",
+    "secondary": "Laptop accessories",
+    "typeLabel": "Merchandise",
+    "category": "Laptop accessories",
+    "status": "Active",
+    "updatedAt": "2026-02-27",
+    "owner": "Nina Patel",
+    "variantCount": 3,
+    "usedInOffers": 1,
+    "usedInBundles": 2
+  },
+  {
+    "key": "product:prod-1004",
+    "kind": "product",
+    "name": "Amazon Gift Card",
+    "secondary": "Consumer electronics",
+    "typeLabel": "Merchandise",
+    "category": "Digital gift cards",
+    "status": "Active",
+    "updatedAt": "2026-02-21",
+    "owner": "Catalog team",
+    "variantCount": 3,
+    "usedInOffers": 5,
+    "usedInBundles": 3
+  },
+  {
+    "key": "product:prod-1005",
+    "kind": "product",
+    "name": "Vintage Leather Jacket",
+    "secondary": "Apparel",
+    "typeLabel": "Merchandise",
+    "category": "Outerwear",
+    "status": "Draft",
+    "updatedAt": "2026-02-23",
+    "owner": "Maya Chen",
+    "variantCount": 1,
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "product:prod-1006",
+    "kind": "product",
+    "name": "5G Unlimited Plan",
+    "secondary": "Postpaid mobile plan",
+    "typeLabel": "Telco",
+    "category": "Mobile Plans",
+    "status": "Active",
+    "updatedAt": "2026-02-27",
+    "owner": "Telco catalog",
+    "subscriptionType": "Recurring cancel any time",
+    "duration": "12 months",
+    "dataAllowance": "Unlimited",
+    "variantCount": 1,
+    "usedInOffers": 4,
+    "usedInBundles": 5
+  },
+  {
+    "key": "product:prod-1007",
+    "kind": "product",
+    "name": "Prepaid Data Pack",
+    "secondary": "Prepaid starter plan",
+    "typeLabel": "Telco",
+    "category": "Mobile Plans",
+    "status": "Active",
+    "updatedAt": "2026-02-27",
+    "owner": "Telco catalog",
+    "subscriptionType": "Fixed duration prepaid",
+    "duration": "30 days",
+    "dataAllowance": "50GB",
+    "variantCount": 1,
+    "usedInOffers": 8,
+    "usedInBundles": 2
+  },
+  {
+    "key": "product:prod-1008",
+    "kind": "product",
+    "name": "Family Share Plan",
+    "secondary": "Postpaid mobile plan",
+    "typeLabel": "Telco",
+    "category": "Mobile Plans",
+    "status": "Review",
+    "updatedAt": "2026-02-26",
+    "owner": "Telco catalog",
+    "subscriptionType": "Fixed duration installments",
+    "duration": "24 months",
+    "dataAllowance": "200GB Shared",
+    "variantCount": 1,
+    "usedInOffers": 3,
+    "usedInBundles": 1
+  },
+  {
+    "key": "bundle:bundle-1",
+    "kind": "bundle",
+    "name": "5G Plan + Premium T-Shirt",
+    "secondary": "BND-000001",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Active",
+    "updatedAt": "2024-02-01",
+    "owner": "Nina Patel",
+    "componentNames": [
+      "5G Unlimited Plan",
+      "Premium Cotton T-Shirt"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-2",
+    "kind": "bundle",
+    "name": "Entertainment Pack",
+    "secondary": "BND-000002",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Active",
+    "updatedAt": "2024-02-01",
+    "owner": "Maya Chen",
+    "componentNames": [
+      "Streaming Add-on",
+      "Wireless Noise-Canceling Headphones"
+    ],
+    "issues": [
+      "Component \"Wireless Noise-Canceling Headphones\" has low stock"
+    ],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-3",
+    "kind": "bundle",
+    "name": "Gift Bundle",
+    "secondary": "BND-000003",
+    "typeLabel": "Merchandise only",
+    "category": "-",
+    "status": "Incomplete",
+    "updatedAt": "2024-02-01",
+    "owner": "Arjun Mehta",
+    "componentNames": [
+      "Premium Cotton T-Shirt",
+      "Amazon Gift Card"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-4",
+    "kind": "bundle",
+    "name": "Family Entertainment Bundle",
+    "secondary": "BND-000004",
+    "typeLabel": "Telco only",
+    "category": "-",
+    "status": "Active",
+    "updatedAt": "2024-02-10",
+    "owner": "Nina Patel",
+    "componentNames": [
+      "Family Share Plan",
+      "Streaming Add-on"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-5",
+    "kind": "bundle",
+    "name": "Student Starter Pack",
+    "secondary": "BND-000005",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Active",
+    "updatedAt": "2024-02-12",
+    "owner": "Maya Chen",
+    "componentNames": [
+      "5G Student Plan 20GB",
+      "Wireless Earbuds"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-6",
+    "kind": "bundle",
+    "name": "Premium Tech Bundle",
+    "secondary": "BND-000006",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Incomplete",
+    "updatedAt": "2024-02-11",
+    "owner": "Arjun Mehta",
+    "componentNames": [
+      "5G Unlimited Plan",
+      "Smart Watch Pro",
+      "Wireless Earbuds"
+    ],
+    "issues": [
+      "Component \"Smart Watch Pro\" is out of stock"
+    ],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-7",
+    "kind": "bundle",
+    "name": "Business Essentials",
+    "secondary": "BND-000007",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Archived",
+    "updatedAt": "2024-01-30",
+    "owner": "Nina Patel",
+    "componentNames": [
+      "Business Unlimited",
+      "Laptop"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-8",
+    "kind": "bundle",
+    "name": "Holiday Special 2024",
+    "secondary": "BND-000008",
+    "typeLabel": "Merchandise only",
+    "category": "-",
+    "status": "Active",
+    "updatedAt": "2024-02-09",
+    "owner": "Maya Chen",
+    "componentNames": [
+      "Premium Cotton T-Shirt",
+      "Wireless Noise-Canceling Headphones",
+      "Amazon Gift Card"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-9",
+    "kind": "bundle",
+    "name": "Smart Home Starter",
+    "secondary": "BND-000009",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Active",
+    "updatedAt": "2024-02-08",
+    "owner": "Arjun Mehta",
+    "componentNames": [
+      "IoT Data Plan",
+      "Smart Router"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  },
+  {
+    "key": "bundle:bundle-10",
+    "kind": "bundle",
+    "name": "Gaming Ultimate",
+    "secondary": "BND-000010",
+    "typeLabel": "Telco + Merchandise",
+    "category": "-",
+    "status": "Incomplete",
+    "updatedAt": "2024-02-12",
+    "owner": "Nina Patel",
+    "componentNames": [
+      "Unlimited Low Latency Plan",
+      "Gaming Console"
+    ],
+    "issues": [],
+    "usedInOffers": 0,
+    "usedInBundles": 0
+  }
+]
