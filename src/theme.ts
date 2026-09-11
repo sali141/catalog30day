@@ -46,6 +46,11 @@ export const circlesTheme: ThemeConfig = {
       paddingLG: 24,
       headerBg: '#ffffff',
       colorBorderSecondary: '#f0f0f0',
+      // Header tint of type="inner" cards; half the global colorFillAlter.
+      colorFillAlter: 'rgba(0, 0, 0, 0.01)',
+    },
+    Collapse: {
+      headerBg: 'rgba(0, 0, 0, 0.01)',
     },
     Table: {
       headerBg: '#fafafa',
