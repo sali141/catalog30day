@@ -48,21 +48,17 @@ type OfferType = 'BASE_PLAN' | 'ADD_ON' | 'MIXED_BUNDLE'
 type OfferSubType = 'FIXED_DATA_TIER' | 'UNLIMITED_TIER' | 'ASSET_ANCHORED'
 type ListingStatus = 'Draft'
 type PaymentModel = 'Postpaid' | 'Prepaid'
-type PaymentPolicy = 'Charge in Billing Account' | 'Charge Upfront from Wallet'
+type PaymentPolicy = 'Standard Postpaid' | 'Upfront Card'
 type ChargingPolicy = 'Real-Time Policy' | 'Advance Policy' | 'Arrears Policy'
 type BillingPolicyOption = 'Bill Cycle Policy'
 type ProrationPolicy = 'Daily Proration Policy'
 type PricingType = 'Reccuring' | 'Fee'
-type FeeDefinition = 'Activation Fee' | 'Compliance Fee' | 'Regulatory Fee'
+type FeeDefinition = 'Network Activation Fee' | 'Compliance Fee' | 'Regulatory Fee'
 type PricingBasis = 'Flat' | 'Per Tier'
 type PricingUnit = 'Per Line' | 'Per Account'
 type PricingFrequency = 'Monthly' | 'Annually'
 type TaxTreatment = 'Taxable' | 'Exempt' | 'Zero-related'
 
-type LinePrice = {
-  line: number
-  price?: number
-}
 type PolicyInheritOption = 'Inherit from Offer'
 type PaymentPolicyOverride = PolicyInheritOption | PaymentPolicy
 type ChargingPolicyOverride = PolicyInheritOption | ChargingPolicy
@@ -83,12 +79,28 @@ type EntitlementResetFrequency = 'Daily' | 'Monthly' | 'Bill Cycle' | 'None'
 type EntitlementExpiry = 'Expire' | 'Carry Over' | 'Replace'
 type NetworkProfile = '1 GB → 256 kbps'
 type RevenueSplitMode = 'Equally' | 'By Percentage' | 'By Amount'
+type RevenueAllocationMode = 'Mobile (100%)' | 'Split'
+
+type SharingScope = 'Line' | 'Group' | 'Account'
+type AllocationUnit = 'GB' | 'MB' | 'KB'
+
+type EntitlementAllocationRow = {
+  line: number
+  value?: number
+  unit?: AllocationUnit
+}
 
 type ServiceEntitlement = {
+  applicable?: boolean
+  entitlementPolicyTitle?: string
+  enableSharing?: boolean
+  sharingScope?: SharingScope
   allocationMode?: AllocationMode
+  allocations?: EntitlementAllocationRow[]
   resetFrequency?: EntitlementResetFrequency
   rolloverAllowed?: boolean
-  rolloverLimit?: string
+  rolloverLimitValue?: number
+  rolloverLimitUnit?: AllocationUnit
   expiry?: EntitlementExpiry
   networkProfile?: NetworkProfile
 }
@@ -99,23 +111,21 @@ type ServicePricingSplit = {
   percentage?: number
   glCode?: string
   taxId?: string
+  taxTreatment?: TaxTreatment
   amountManuallySet?: boolean
 }
 
 type PriceComponent = {
   pricingType: PricingType
   feeDefinition?: FeeDefinition
+  componentLabel?: string
   glCode: string
   taxTreatment: TaxTreatment
   pricingBasis: PricingBasis
   pricingUnit?: PricingUnit
   frequency?: PricingFrequency
-  additionalLinePrice?: number
-  additionalLineGlCode?: string
-  additionalLineTaxId?: string
-  linePrices?: LinePrice[]
   taxId: string
-  allowServiceLevelRevenueAllocation?: boolean
+  revenueAllocationMode?: RevenueAllocationMode
   revenueSplitMode?: RevenueSplitMode
   servicePricingSplits?: ServicePricingSplit[]
   paymentPolicy: PaymentPolicyOverride
@@ -148,16 +158,46 @@ type ListingFormValues = {
   subtitle?: string
   description?: string
   channels: string[]
-  country: string
-  customerAccess: 'All eligible customers' | 'New customers' | 'Existing customers'
+  eligibility: EligibilityFormValues
+}
+
+type LocationCompatibilityMode = 'allow' | 'exclude'
+type PurchaseCompatibilityMode = 'allow' | 'exclude'
+type AgeCompatibilityMode = 'range' | 'greaterThan'
+
+type EligibilityFormValues = {
+  ageCompatibilityEnabled: boolean
+  ageCompatibilityMode: AgeCompatibilityMode
+  ageMin?: number
+  ageMax?: number
+  ageGreaterThan?: number
+  membershipAvailabilityEnabled: boolean
+  memberships: string[]
+  locationAvailabilityEnabled: boolean
+  locationCompatibilityMode: LocationCompatibilityMode
+  locationSearchBy: string
+  locations: string[]
+  salesChannelAvailabilityEnabled: boolean
+  channelSearchBy: string
+  salesChannels: string[]
+  subscriptionControlEnabled: boolean
+  purchaseCompatibilityEnabled: boolean
+  purchaseCompatibilityMode: PurchaseCompatibilityMode
+  compatibleProducts: string[]
+  customerEligibilityEnabled: boolean
+  useCustomerAttributes: boolean
+  useSegments: boolean
+  segments: string[]
+  customerJourneyEnabled: boolean
+  journeys: string[]
 }
 
 const stepItems = [
   { title: 'Offer Details', description: 'Offer and payment' },
   { title: 'Pricing', description: 'Pricing components' },
   { title: 'Entitlement', description: 'Service allowances' },
+  { title: 'Eligibility', description: 'Availability rules' },
   { title: 'Display', description: 'Customer-facing content' },
-  { title: 'Eligibility', description: 'Market availability' },
   { title: 'Review', description: 'Confirm and save' },
 ]
 
@@ -263,75 +303,182 @@ function OfferTypePicker({
 }
 
 const PAYMENT_POLICY_OPTIONS: Record<PaymentModel, PaymentPolicy[]> = {
-  Postpaid: ['Charge in Billing Account'],
-  Prepaid: ['Charge Upfront from Wallet'],
+  Postpaid: ['Standard Postpaid'],
+  Prepaid: ['Upfront Card'],
 }
 
 const PRICING_TYPE_OPTIONS: PricingType[] = ['Reccuring', 'Fee']
-const FEE_DEFINITION_OPTIONS: FeeDefinition[] = ['Activation Fee', 'Compliance Fee', 'Regulatory Fee']
+const FEE_DEFINITION_OPTIONS: FeeDefinition[] = ['Network Activation Fee', 'Compliance Fee', 'Regulatory Fee']
 const TAX_TREATMENT_OPTIONS: TaxTreatment[] = ['Taxable', 'Exempt', 'Zero-related']
 const PRICING_BASIS_OPTIONS: PricingBasis[] = ['Flat', 'Per Tier']
 const PRICING_UNIT_OPTIONS: PricingUnit[] = ['Per Line', 'Per Account']
 const FREQUENCY_OPTIONS: PricingFrequency[] = ['Monthly', 'Annually']
 const ENTITLEMENT_SERVICE_TYPES: EntitlementServiceType[] = ['Data', 'Voice', 'SMS']
+const ENTITLEMENT_PANEL_TITLES: Record<EntitlementServiceType, string> = {
+  Data: 'Local Data (Unlimited)',
+  Voice: 'Local Voice (Unlimited)',
+  SMS: 'Local SMS (Unlimited)',
+}
+const LOCATION_OPTIONS = [
+  { value: 'loc-001', label: 'loc-001 — Colombo' },
+  { value: 'loc-002', label: 'loc-002 — Kandy' },
+  { value: 'loc-003', label: 'loc-003 — Galle' },
+  { value: 'loc-004', label: 'loc-004 — Jaffna' },
+]
+const SALES_CHANNEL_OPTIONS = [
+  { value: 'daraz', label: 'daraz' },
+  { value: 'app', label: 'app' },
+  { value: 'web', label: 'web' },
+  { value: 'retail', label: 'retail' },
+]
+const COMPATIBLE_PRODUCT_OPTIONS = [
+  { value: 'connect', label: 'Connect' },
+  { value: 'connect-plus', label: 'Connect+' },
+  { value: 'minimalist', label: 'Minimalist' },
+  { value: 'unlimited-50', label: 'Unlimited 50+' },
+]
+const SEGMENT_OPTIONS = [
+  { value: 'new-customers', label: 'New customers' },
+  { value: 'prepaid', label: 'Prepaid' },
+  { value: 'postpaid', label: 'Postpaid' },
+  { value: 'aarp-members', label: 'AARP Members' },
+]
+const MEMBERSHIP_OPTIONS = [
+  { value: 'aarp', label: 'AARP' },
+  { value: 'military', label: 'Military' },
+  { value: 'student', label: 'Student' },
+  { value: 'senior', label: 'Senior' },
+]
+const JOURNEY_OPTIONS = [
+  { value: 'onAppPurchase', label: 'onAppPurchase' },
+  { value: 'onboarding', label: 'onboarding' },
+  { value: 'upgrade', label: 'upgrade' },
+  { value: 'renewal', label: 'renewal' },
+]
+const LOCATION_SEARCH_BY_OPTIONS = ['Location ID', 'Name']
+const CHANNEL_SEARCH_BY_OPTIONS = ['Name', 'ID']
+
+function defaultEligibility(): EligibilityFormValues {
+  return {
+    ageCompatibilityEnabled: false,
+    ageCompatibilityMode: 'range',
+    membershipAvailabilityEnabled: false,
+    memberships: [],
+    locationAvailabilityEnabled: false,
+    locationCompatibilityMode: 'allow',
+    locationSearchBy: 'Location ID',
+    locations: [],
+    salesChannelAvailabilityEnabled: false,
+    channelSearchBy: 'Name',
+    salesChannels: [],
+    subscriptionControlEnabled: false,
+    purchaseCompatibilityEnabled: false,
+    purchaseCompatibilityMode: 'allow',
+    compatibleProducts: [],
+    customerEligibilityEnabled: false,
+    useCustomerAttributes: false,
+    useSegments: false,
+    segments: [],
+    customerJourneyEnabled: false,
+    journeys: [],
+  }
+}
 const ALLOCATION_MODE_OPTIONS: AllocationMode[] = ['Line', 'Per Line', 'Shared Pool']
+const SHARING_SCOPE_OPTIONS: SharingScope[] = ['Line', 'Group', 'Account']
+const ALLOCATION_UNIT_OPTIONS: AllocationUnit[] = ['GB', 'MB', 'KB']
+const TOTAL_ALLOCATION_AMOUNT = 15
 const ENTITLEMENT_RESET_FREQUENCY_OPTIONS: EntitlementResetFrequency[] = ['Daily', 'Monthly', 'Bill Cycle', 'None']
 const ENTITLEMENT_EXPIRY_OPTIONS: EntitlementExpiry[] = ['Expire', 'Carry Over', 'Replace']
 const NETWORK_PROFILE_OPTIONS: NetworkProfile[] = ['1 GB → 256 kbps']
 
-function defaultServiceEntitlement(): ServiceEntitlement {
+function defaultServiceEntitlement(applicable = false): ServiceEntitlement {
   return {
+    applicable,
+    enableSharing: false,
     rolloverAllowed: false,
   }
 }
 
 function defaultEntitlements(): Record<EntitlementServiceType, ServiceEntitlement> {
   return {
-    Data: defaultServiceEntitlement(),
-    Voice: defaultServiceEntitlement(),
-    SMS: defaultServiceEntitlement(),
+    Data: defaultServiceEntitlement(true),
+    Voice: defaultServiceEntitlement(false),
+    SMS: defaultServiceEntitlement(false),
   }
 }
 
-function linePriceForRow(line: number, mainPrice?: number, additionalLinePrice?: number): number | undefined {
-  if (mainPrice == null) return undefined
-  if (line === 1) return Math.round(mainPrice * 100) / 100
-  if (additionalLinePrice == null) return undefined
-  return Math.round((mainPrice + additionalLinePrice * (line - 1)) * 100) / 100
+function equalAllocationValue(maxLines: number): number {
+  const lineCount = Math.max(1, maxLines || 1)
+  return Math.round((TOTAL_ALLOCATION_AMOUNT / lineCount) * 100) / 100
 }
 
-function buildLinePrices(
+function buildEntitlementAllocations(
   maxLines: number,
-  mainPrice?: number,
-  additionalLinePrice?: number,
-): LinePrice[] {
+  allocationMode?: AllocationMode,
+  existing?: EntitlementAllocationRow[],
+): EntitlementAllocationRow[] {
   const lineCount = Math.max(1, maxLines || 1)
+  const equalSplit = allocationMode === 'Line' || allocationMode === 'Per Line'
+  const splitValue = equalSplit ? equalAllocationValue(lineCount) : undefined
   return Array.from({ length: lineCount }, (_, index) => {
     const line = index + 1
+    const previous = existing?.[index]
     return {
       line,
-      price: linePriceForRow(line, mainPrice, additionalLinePrice),
+      value: equalSplit ? splitValue : previous?.value,
+      unit: previous?.unit ?? 'GB',
     }
   })
 }
 
-function recalculateLinePrices(
-  rows: LinePrice[],
-  mainPrice?: number,
-  additionalLinePrice?: number,
-): LinePrice[] {
+function redistributeEntitlementAllocations(
+  rows: EntitlementAllocationRow[],
+  rowIndex: number,
+  nextValue: number,
+): EntitlementAllocationRow[] | null {
+  if (nextValue > TOTAL_ALLOCATION_AMOUNT || nextValue < 0) return null
+
+  const clampedValue = Math.round(nextValue * 100) / 100
+  const remaining = Math.round((TOTAL_ALLOCATION_AMOUNT - clampedValue) * 100) / 100
+  const otherIndices = rows
+    .map((_, index) => index)
+    .filter((index) => index !== rowIndex)
+
+  if (!otherIndices.length) {
+    return rows.map((row, index) => (
+      index === rowIndex ? { ...row, value: clampedValue } : row
+    ))
+  }
+
+  const baseShare = otherIndices.length === 1
+    ? remaining
+    : Math.round((remaining / otherIndices.length) * 100) / 100
+
+  let assignedToOthers = 0
+
   return rows.map((row, index) => {
-    const line = row.line ?? index + 1
-    return {
-      line,
-      price: linePriceForRow(line, mainPrice, additionalLinePrice),
+    if (index === rowIndex) {
+      return { ...row, value: clampedValue }
     }
+
+    const otherPosition = otherIndices.indexOf(index)
+    const isLastOther = otherPosition === otherIndices.length - 1
+    const value = isLastOther
+      ? Math.round((remaining - assignedToOthers) * 100) / 100
+      : baseShare
+
+    if (!isLastOther) {
+      assignedToOthers += value
+    }
+
+    return { ...row, value }
   })
 }
+
 const PAYMENT_POLICY_OVERRIDE_OPTIONS: PaymentPolicyOverride[] = [
   'Inherit from Offer',
-  'Charge in Billing Account',
-  'Charge Upfront from Wallet',
+  'Standard Postpaid',
+  'Upfront Card',
 ]
 const CHARGING_POLICY_OVERRIDE_OPTIONS: ChargingPolicyOverride[] = [
   'Inherit from Offer',
@@ -344,6 +491,7 @@ const PRORATION_POLICY_OVERRIDE_OPTIONS: ProrationPolicyOverride[] = ['Inherit f
 const TIER_DIMENSION_OPTIONS: TierDimension[] = ['Line Count']
 const SERVICE_SPLIT_SERVICE_TYPES: ServiceSplitType[] = ['Data', 'Voice', 'SMS']
 const REVENUE_SPLIT_OPTIONS: RevenueSplitMode[] = ['Equally', 'By Percentage', 'By Amount']
+const REVENUE_ALLOCATION_MODE_OPTIONS: RevenueAllocationMode[] = ['Mobile (100%)', 'Split']
 const DEFAULT_REVENUE_SPLIT_PERCENTAGE = Math.round((100 / 3) * 100) / 100
 
 function dividedRevenueAllocationAmount(mainAmount: number): number {
@@ -364,6 +512,7 @@ function buildServicePricingSplits(
     amount: dividedAmount,
     glCode: existing?.[index]?.glCode ?? '',
     taxId: existing?.[index]?.taxId ?? '',
+    taxTreatment: existing?.[index]?.taxTreatment ?? 'Taxable',
     amountManuallySet: false,
     percentage: undefined,
   }))
@@ -382,6 +531,7 @@ function buildPercentageRevenueSplits(
       amount: mainAmount != null ? amountFromPercentage(mainAmount, percentage) : undefined,
       glCode: existingSplit?.glCode ?? '',
       taxId: existingSplit?.taxId ?? '',
+      taxTreatment: existingSplit?.taxTreatment ?? 'Taxable',
       amountManuallySet: false,
     }
   })
@@ -486,6 +636,7 @@ function defaultServicePricingSplit(serviceType: ServiceSplitType, mainAmount?: 
     amount: mainAmount != null ? dividedRevenueAllocationAmount(mainAmount) : undefined,
     glCode: '',
     taxId: '',
+    taxTreatment: 'Taxable',
   }
 }
 
@@ -502,7 +653,7 @@ function defaultPriceComponent(): PriceComponent {
     pricingUnit: 'Per Line',
     frequency: 'Monthly',
     taxId: '',
-    allowServiceLevelRevenueAllocation: false,
+    revenueAllocationMode: 'Mobile (100%)',
     revenueSplitMode: 'Equally',
     servicePricingSplits: SERVICE_SPLIT_SERVICE_TYPES.map((serviceType) => defaultServicePricingSplit(serviceType)),
     paymentPolicy: 'Inherit from Offer',
@@ -511,6 +662,27 @@ function defaultPriceComponent(): PriceComponent {
     prorationPolicy: 'Inherit from Offer',
     tierDimension: 'Line Count',
     tiers: [defaultPriceTier()],
+  }
+}
+
+function defaultAdditionalLinePriceComponent(): PriceComponent {
+  return {
+    ...defaultPriceComponent(),
+    componentLabel: 'Additional Line',
+    pricingType: 'Reccuring',
+    pricingUnit: 'Per Line',
+    frequency: 'Monthly',
+  }
+}
+
+function defaultOneTimeNetworkActivationFeeComponent(): PriceComponent {
+  return {
+    ...defaultPriceComponent(),
+    componentLabel: 'Network Activation Fee',
+    pricingType: 'Fee',
+    pricingUnit: 'Per Line',
+    feeDefinition: 'Network Activation Fee',
+    frequency: undefined,
   }
 }
 
@@ -525,7 +697,7 @@ function priceComponentTitle(
   pricingType?: PricingType,
   feeDefinition?: FeeDefinition,
 ): string {
-  if (pricingType === 'Fee') return feeDefinition ?? 'Fee'
+  if (pricingType === 'Fee') return feeDefinition ?? 'One Time'
   return pricingType ?? 'Pricing component'
 }
 
@@ -540,49 +712,44 @@ function PriceComponentFields({
   field,
   productName,
   offerType,
-  maxLines,
   canRemove,
   onRemove,
+  hideTitle = false,
 }: {
   field: { name: number; key: number }
   productName?: string
   offerType: OfferType
-  maxLines: number
   canRemove: boolean
   onRemove: () => void
+  hideTitle?: boolean
 }) {
   const { message } = App.useApp()
-  const [revenueAllocationActive, setRevenueAllocationActive] = useState<string[]>([])
-  const [additionalLinesActive, setAdditionalLinesActive] = useState<string[]>([])
+  const [revenueAllocationActive, setRevenueAllocationActive] = useState<string[]>(['revenue-allocation'])
   const form = Form.useFormInstance<ListingFormValues>()
   const pricingType = Form.useWatch(['priceComponents', field.name, 'pricingType'], form)
   const feeDefinition = Form.useWatch(['priceComponents', field.name, 'feeDefinition'], form)
   const pricingBasis = Form.useWatch(['priceComponents', field.name, 'pricingBasis'], form) ?? 'Flat'
   const isFlatPricing = pricingBasis === 'Flat'
-  const pricingUnit = Form.useWatch(['priceComponents', field.name, 'pricingUnit'], form)
   const offerTypeLabel = offerTypeTitle(offerType)
-  const showAdditionalLines = isFlatPricing
-    && pricingType === 'Reccuring'
-    && offerType === 'BASE_PLAN'
-    && pricingUnit === 'Per Line'
-  const additionalLinePrice = Form.useWatch(['priceComponents', field.name, 'additionalLinePrice'], form)
-  const hasAdditionalLinePrice = additionalLinePrice != null
-  const linePrices = Form.useWatch(['priceComponents', field.name, 'linePrices'], form) as LinePrice[] | undefined
   const productKey = Form.useWatch('productKey', form)
   const displayName = Form.useWatch('displayName', form)
   const effectiveProductName = productName ?? resolveCatalogItemName(productKey) ?? displayName
-  const componentTitle = priceComponentTitle(pricingType, feeDefinition)
+  const componentLabel = Form.useWatch(['priceComponents', field.name, 'componentLabel'], form)
+  const componentTitle = componentLabel || priceComponentTitle(pricingType, feeDefinition)
   const primaryComponentName = effectiveProductName?.trim()
+  const isAdditionalLine = componentLabel === 'Additional Line'
+  const isNetworkActivationFee = pricingType === 'Fee' && feeDefinition === 'Network Activation Fee'
+  const priceOptional = isAdditionalLine || isNetworkActivationFee
   const flatAmount = Form.useWatch(['priceComponents', field.name, 'amount'], form)
   const firstTierAmount = Form.useWatch(['priceComponents', field.name, 'tiers', 0, 'amount'], form)
   const mainPricingAmount = isFlatPricing ? flatAmount : firstTierAmount
-  const allowServiceLevelRevenueAllocation = Form.useWatch(
-    ['priceComponents', field.name, 'allowServiceLevelRevenueAllocation'],
+  const revenueAllocationMode = Form.useWatch(
+    ['priceComponents', field.name, 'revenueAllocationMode'],
     form,
-  )
+  ) as RevenueAllocationMode | undefined
   const revenueSplitMode = Form.useWatch(['priceComponents', field.name, 'revenueSplitMode'], form) ?? 'Equally'
-  const revenueAllocationExpanded = allowServiceLevelRevenueAllocation
-    && revenueAllocationActive.includes('revenue-allocation')
+  const showMobileAllocation = (revenueAllocationMode ?? 'Mobile (100%)') === 'Mobile (100%)'
+  const showRevenueSplitDetails = revenueAllocationMode === 'Split'
   const amountSplitReadOnly = revenueSplitMode !== 'By Amount'
 
   const syncRevenueAllocationSplits = () => {
@@ -649,49 +816,9 @@ function PriceComponentFields({
   }
 
   useEffect(() => {
-    if (!revenueAllocationExpanded || mainPricingAmount == null) return
+    if (!showRevenueSplitDetails || mainPricingAmount == null) return
     syncRevenueAllocationSplits()
-  }, [revenueAllocationExpanded, mainPricingAmount, revenueSplitMode, field.name, form])
-
-  useEffect(() => {
-    if (!showAdditionalLines) {
-      setAdditionalLinesActive([])
-    }
-  }, [showAdditionalLines])
-
-  useEffect(() => {
-    if (!showAdditionalLines) return
-    const targetLines = Math.max(1, maxLines)
-    const existing = (form.getFieldValue(['priceComponents', field.name, 'linePrices']) ?? []) as LinePrice[]
-    const mainPrice = flatAmount != null ? Number(flatAmount) : undefined
-    const addPerLine = additionalLinePrice != null ? Number(additionalLinePrice) : undefined
-    if (existing.length < targetLines) {
-      const padded = [...existing]
-      for (let line = existing.length + 1; line <= targetLines; line += 1) {
-        padded.push({ line, price: linePriceForRow(line, mainPrice, addPerLine) })
-      }
-      form.setFieldValue(['priceComponents', field.name, 'linePrices'], padded)
-      return
-    }
-    if (existing.length === 0) {
-      form.setFieldValue(
-        ['priceComponents', field.name, 'linePrices'],
-        buildLinePrices(targetLines, mainPrice, addPerLine),
-      )
-    }
-  }, [showAdditionalLines, maxLines, field.name, form, flatAmount, additionalLinePrice])
-
-  useEffect(() => {
-    if (!showAdditionalLines) return
-    const existing = (form.getFieldValue(['priceComponents', field.name, 'linePrices']) ?? []) as LinePrice[]
-    if (!existing.length) return
-    const mainPrice = flatAmount != null ? Number(flatAmount) : undefined
-    const addPerLine = additionalLinePrice != null ? Number(additionalLinePrice) : undefined
-    form.setFieldValue(
-      ['priceComponents', field.name, 'linePrices'],
-      recalculateLinePrices(existing, mainPrice, addPerLine),
-    )
-  }, [showAdditionalLines, flatAmount, additionalLinePrice, field.name, form, linePrices?.length])
+  }, [showRevenueSplitDetails, mainPricingAmount, revenueSplitMode, field.name, form])
 
   const handleSplitAmountChange = (rowIndex: number, value: number | null): boolean => {
     if (value == null || mainPricingAmount == null) return false
@@ -732,42 +859,55 @@ function PriceComponentFields({
 
   return (
     <div className="component-price-card">
-      <Flex justify="space-between" align="center" className="component-price-heading">
-        {field.name === 0 ? (
-          <Flex align="center" gap={8} wrap="wrap">
-            {primaryComponentName ? (
-              <Typography.Text strong>{primaryComponentName}</Typography.Text>
-            ) : null}
-            <Tag color="blue">{offerTypeLabel}</Tag>
-          </Flex>
-        ) : (
-          <Typography.Text strong>{componentTitle}</Typography.Text>
-        )}
-        {canRemove ? (
+      {!hideTitle ? (
+        <Flex justify="space-between" align="center" className="component-price-heading">
+          {field.name === 0 ? (
+            <Flex align="center" gap={8} wrap="wrap">
+              {primaryComponentName ? (
+                <Typography.Text strong>{primaryComponentName}</Typography.Text>
+              ) : null}
+              <Tag color="blue">{offerTypeLabel}</Tag>
+            </Flex>
+          ) : (
+            <Typography.Text strong>{componentTitle}</Typography.Text>
+          )}
+          {canRemove ? (
+            <Button type="text" danger icon={<DeleteOutlined />} onClick={onRemove}>
+              Remove
+            </Button>
+          ) : null}
+        </Flex>
+      ) : canRemove ? (
+        <Flex justify="flex-end" className="component-price-heading">
           <Button type="text" danger icon={<DeleteOutlined />} onClick={onRemove}>
             Remove
           </Button>
-        ) : null}
-      </Flex>
+        </Flex>
+      ) : null}
       <div className="form-grid">
+        <Form.Item name={[field.name, 'componentLabel']} hidden>
+          <Input />
+        </Form.Item>
         <Form.Item name={[field.name, 'pricingBasis']} hidden initialValue="Flat">
           <Input />
         </Form.Item>
         <div className="span-two pricing-charge-row">
           <Form.Item
             name={[field.name, 'pricingType']}
-            label="Charge Type"
+            label="Pricing Type"
             rules={[{ required: true, message: 'Select a charge type' }]}
           >
             <Select
-              options={PRICING_TYPE_OPTIONS.map((value) => ({ value }))}
+              options={PRICING_TYPE_OPTIONS.map((value) => ({
+                value,
+                label: value === 'Fee' ? 'One Time' : value,
+              }))}
               onChange={(value: PricingType) => {
                 if (value !== 'Fee') {
                   form.setFieldValue(['priceComponents', field.name, 'feeDefinition'], undefined)
                 }
                 if (value !== 'Reccuring') {
-                  form.setFieldValue(['priceComponents', field.name, 'allowServiceLevelRevenueAllocation'], false)
-                  setRevenueAllocationActive([])
+                  form.setFieldValue(['priceComponents', field.name, 'revenueAllocationMode'], 'Mobile (100%)')
                 }
               }}
             />
@@ -777,7 +917,7 @@ function PriceComponentFields({
               <Form.Item
                 name={[field.name, 'amount']}
                 label="Price"
-                rules={[{ required: true, message: 'Enter a price' }]}
+                rules={priceOptional ? [] : [{ required: true, message: 'Enter a price' }]}
               >
                 <InputNumber min={0} precision={2} prefix="$" style={{ width: '100%' }} />
               </Form.Item>
@@ -791,8 +931,8 @@ function PriceComponentFields({
               {pricingType === 'Fee' ? (
                 <Form.Item
                   name={[field.name, 'feeDefinition']}
-                  label="Fee Definition"
-                  rules={[{ required: true, message: 'Select a fee definition' }]}
+                  label="Associated Fee"
+                  rules={[{ required: true, message: 'Select an associated fee' }]}
                 >
                   <Select options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
                 </Form.Item>
@@ -809,313 +949,212 @@ function PriceComponentFields({
             </>
           ) : null}
         </div>
-        <div className="span-two form-grid three">
-          <Form.Item
-            name={[field.name, 'glCode']}
-            label="GL Code"
-            rules={[{ required: true, message: 'Enter a GL code' }]}
-          >
-            <Input placeholder="e.g. 4100-100" />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'taxTreatment']}
-            label="Tax Treatment"
-            rules={[{ required: true, message: 'Select a tax treatment' }]}
-          >
-            <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'taxId']}
-            label="Tax ID"
-            rules={[{ required: true, message: 'Enter a tax ID' }]}
-          >
-            <Input
-              placeholder="e.g. 13/622"
-              readOnly={!!allowServiceLevelRevenueAllocation}
-            />
-          </Form.Item>
-        </div>
-        {pricingType === 'Reccuring' ? (
-          <div className="span-two revenue-allocation-panel">
-            <Flex align="center" gap={8} className="revenue-allocation-toggle">
-              <Typography.Text>Allow service level splitting</Typography.Text>
-              <Form.Item
-                name={[field.name, 'allowServiceLevelRevenueAllocation']}
-                valuePropName="checked"
-                noStyle
-              >
-                <Switch
-                  onChange={(checked) => {
-                    if (checked) {
-                      setRevenueAllocationActive(['revenue-allocation'])
-                      syncRevenueAllocationSplits()
-                    } else {
-                      setRevenueAllocationActive([])
-                    }
-                  }}
-                />
-              </Form.Item>
-            </Flex>
-            <Collapse
-              activeKey={allowServiceLevelRevenueAllocation ? revenueAllocationActive : []}
-              collapsible={allowServiceLevelRevenueAllocation ? undefined : 'disabled'}
-              onChange={(keys) => {
-                if (!allowServiceLevelRevenueAllocation) return
-                const nextKeys = Array.isArray(keys) ? keys : [keys]
-                const isOpening = nextKeys.includes('revenue-allocation') && !revenueAllocationExpanded
-                setRevenueAllocationActive(nextKeys)
-                if (isOpening) syncRevenueAllocationSplits()
-              }}
-              items={[{
-                key: 'revenue-allocation',
-                label: 'Revenue allocation at service level',
-                children: (
-                  <>
+        <div className="span-two revenue-allocation-panel">
+          <Collapse
+            activeKey={revenueAllocationActive}
+            onChange={(keys) => {
+              setRevenueAllocationActive(Array.isArray(keys) ? keys : [keys])
+            }}
+            items={[{
+              key: 'revenue-allocation',
+              label: (
+                <div className="revenue-allocation-panel-label">
+                  <span>Revenue allocation</span>
+                  <span
+                    className="revenue-allocation-mode-select"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
                     <Form.Item
-                      name={[field.name, 'revenueSplitMode']}
-                      label="Split"
-                      className="revenue-split-mode-field"
-                      rules={revenueAllocationExpanded ? [{ required: true, message: 'Select a split method' }] : []}
+                      name={[field.name, 'revenueAllocationMode']}
+                      noStyle
+                      initialValue="Mobile (100%)"
                     >
                       <Select
-                        options={REVENUE_SPLIT_OPTIONS.map((value) => ({ value }))}
-                        onChange={handleRevenueSplitModeChange}
+                        size="small"
+                        style={{ width: 150 }}
+                        options={REVENUE_ALLOCATION_MODE_OPTIONS.map((value) => ({
+                          value,
+                          label: value,
+                          disabled: value === 'Split' && pricingType !== 'Reccuring',
+                        }))}
+                        onChange={(value: RevenueAllocationMode) => {
+                          if (value === 'Split') syncRevenueAllocationSplits()
+                        }}
                       />
                     </Form.Item>
-                    <Table
-                      className="line-tier-table service-split-table"
-                      size="small"
-                      pagination={false}
-                      rowKey="serviceType"
-                      dataSource={SERVICE_SPLIT_SERVICE_TYPES.map((serviceType, rowIndex) => ({ serviceType, rowIndex }))}
-                      columns={[
-                        {
-                          title: 'Service Type',
-                          width: 110,
-                          render: (_, row) => (
-                            <>
-                              <Form.Item
-                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'serviceType']}
-                                initialValue={row.serviceType}
-                                hidden
-                              >
-                                <Input />
-                              </Form.Item>
-                              <Typography.Text>{row.serviceType}</Typography.Text>
-                            </>
-                          ),
-                        },
-                        ...(revenueSplitMode === 'By Percentage'
-                          ? [{
-                            title: 'Percentage (%)',
-                            width: 140,
-                            render: (_: unknown, row: { serviceType: ServiceSplitType; rowIndex: number }) => (
-                              <Form.Item
-                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'percentage']}
-                                rules={revenueAllocationExpanded ? [{ required: true, message: 'Enter a percentage' }] : []}
-                                style={{ marginBottom: 0 }}
-                                getValueFromEvent={(value: number | null) => {
-                                  const splits = (form.getFieldValue(['priceComponents', field.name, 'servicePricingSplits']) ?? []) as ServicePricingSplit[]
-                                  const currentValue = splits[row.rowIndex]?.percentage
-                                  if (value == null) return value
-                                  if (!handleSplitPercentageChange(row.rowIndex, value)) {
-                                    return currentValue
-                                  }
-                                  return value
-                                }}
-                              >
-                                <InputNumber
-                                  min={0}
-                                  max={100}
-                                  precision={2}
-                                  suffix="%"
-                                  style={{ width: '100%' }}
-                                />
-                              </Form.Item>
-                            ),
-                          }]
-                          : []),
-                        {
-                          title: 'Amount ($)',
-                          width: 160,
-                          render: (_, row) => (
-                            <Form.Item
-                              name={[field.name, 'servicePricingSplits', row.rowIndex, 'amount']}
-                              rules={revenueAllocationExpanded ? [{ required: true, message: 'Enter an amount' }] : []}
-                              style={{ marginBottom: 0 }}
-                              getValueFromEvent={amountSplitReadOnly
-                                ? undefined
-                                : (value: number | null) => {
-                                  const splits = (form.getFieldValue(['priceComponents', field.name, 'servicePricingSplits']) ?? []) as ServicePricingSplit[]
-                                  const currentValue = splits[row.rowIndex]?.amount
-                                  if (value == null) return value
-                                  if (!handleSplitAmountChange(row.rowIndex, value)) {
-                                    return currentValue
-                                  }
-                                  return value
-                                }}
-                            >
-                              <InputNumber
-                                min={0}
-                                precision={2}
-                                prefix="$"
-                                style={{ width: '100%' }}
-                                readOnly={amountSplitReadOnly}
-                              />
-                            </Form.Item>
-                          ),
-                        },
-                        {
-                          title: 'GL code',
-                          render: (_, row) => (
-                            <Form.Item
-                              name={[field.name, 'servicePricingSplits', row.rowIndex, 'glCode']}
-                              rules={revenueAllocationExpanded ? [{ required: true, message: 'Enter a GL code' }] : []}
-                              style={{ marginBottom: 0 }}
-                            >
-                              <Input placeholder="e.g. 4100-100" />
-                            </Form.Item>
-                          ),
-                        },
-                        {
-                          title: 'Tax ID',
-                          render: (_, row) => (
-                            <Form.Item
-                              name={[field.name, 'servicePricingSplits', row.rowIndex, 'taxId']}
-                              rules={revenueAllocationExpanded ? [{ required: true, message: 'Enter a tax ID' }] : []}
-                              style={{ marginBottom: 0 }}
-                            >
-                              <Input placeholder="e.g. 13/622" />
-                            </Form.Item>
-                          ),
-                        },
-                      ]}
-                    />
-                  </>
-                ),
-              }]}
-            />
-          </div>
-        ) : null}
-        {showAdditionalLines ? (
-          <div className="span-two additional-lines-panel">
-            <Collapse
-              activeKey={additionalLinesActive}
-              onChange={(keys) => {
-                setAdditionalLinesActive(Array.isArray(keys) ? keys : [keys])
-              }}
-              items={[{
-                key: 'additional-lines',
-                label: 'Additional Lines',
-                children: (
-                  <>
-                    <div className="additional-lines-fields form-grid three">
+                  </span>
+                </div>
+              ),
+              children: (
+                <>
+                  {showMobileAllocation ? (
+                    <div className="form-grid three revenue-allocation-top-fields">
                       <Form.Item
-                        name={[field.name, 'additionalLinePrice']}
-                        label="Additional Line Price"
-                      >
-                        <InputNumber min={0} precision={2} prefix="$" style={{ width: '100%' }} />
-                      </Form.Item>
-                      <Form.Item
-                        name={[field.name, 'additionalLineGlCode']}
+                        name={[field.name, 'glCode']}
                         label="GL Code"
+                        rules={[{ required: true, message: 'Enter a GL code' }]}
                       >
                         <Input placeholder="e.g. 4100-100" />
                       </Form.Item>
                       <Form.Item
-                        name={[field.name, 'additionalLineTaxId']}
+                        name={[field.name, 'taxId']}
                         label="Tax ID"
+                        rules={[{ required: true, message: 'Enter a tax ID' }]}
                       >
                         <Input placeholder="e.g. 13/622" />
                       </Form.Item>
+                      <Form.Item
+                        name={[field.name, 'taxTreatment']}
+                        label="Tax Treatment"
+                        rules={[{ required: true, message: 'Select a tax treatment' }]}
+                      >
+                        <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
+                      </Form.Item>
                     </div>
-                    {hasAdditionalLinePrice ? (
-                      <Form.List name={[field.name, 'linePrices']}>
-                        {(lineFields, { add, remove }) => (
-                          <>
-                            <Table
-                              className="line-tier-table price-by-lines-table"
-                              size="small"
-                              pagination={false}
-                              rowKey="key"
-                              dataSource={lineFields}
-                              columns={[
-                                {
-                                  title: 'Line',
-                                  width: 120,
-                                  render: (_, lineField) => (
-                                    <>
-                                      <Form.Item
-                                        name={[lineField.name, 'line']}
-                                        initialValue={lineField.name + 1}
-                                        hidden
-                                      >
-                                        <Input />
-                                      </Form.Item>
-                                      <Typography.Text>
-                                        Line {lineField.name + 1}
-                                      </Typography.Text>
-                                    </>
-                                  ),
-                                },
-                                {
-                                  title: 'Price',
-                                  render: (_, lineField) => (
-                                    <Form.Item
-                                      name={[lineField.name, 'price']}
-                                      rules={[{
-                                        required: lineField.name === 0 || hasAdditionalLinePrice,
-                                        message: 'Enter a price',
-                                      }]}
-                                      style={{ marginBottom: 0 }}
-                                    >
-                                      <InputNumber min={0} precision={2} prefix="$" style={{ width: '100%' }} readOnly />
-                                    </Form.Item>
-                                  ),
-                                },
-                                {
-                                  title: '',
-                                  width: 56,
-                                  align: 'center',
-                                  render: (_, lineField) => (
-                                    lineField.name > 0 ? (
-                                      <Button
-                                        type="text"
-                                        danger
-                                        aria-label="Remove line"
-                                        icon={<DeleteOutlined />}
-                                        onClick={() => remove(lineField.name)}
-                                      />
-                                    ) : null
-                                  ),
-                                },
-                              ]}
-                            />
-                            <Button
-                              type="dashed"
-                              icon={<PlusOutlined />}
-                              onClick={() => {
-                                const mainPrice = flatAmount != null ? Number(flatAmount) : undefined
-                                const addPerLine = additionalLinePrice != null ? Number(additionalLinePrice) : undefined
-                                const nextLine = lineFields.length + 1
-                                add({
-                                  line: nextLine,
-                                  price: linePriceForRow(nextLine, mainPrice, addPerLine),
-                                })
-                              }}
-                            >
-                              Add row
-                            </Button>
-                          </>
-                        )}
-                      </Form.List>
-                    ) : null}
-                  </>
-                ),
-              }]}
-            />
-          </div>
-        ) : null}
+                  ) : null}
+                  {showRevenueSplitDetails ? (
+                    <>
+                      <Form.Item
+                        name={[field.name, 'revenueSplitMode']}
+                        className="revenue-split-mode-field"
+                        rules={[{ required: true, message: 'Select a split method' }]}
+                      >
+                        <Select
+                          options={REVENUE_SPLIT_OPTIONS.map((value) => ({ value }))}
+                          onChange={handleRevenueSplitModeChange}
+                        />
+                      </Form.Item>
+                      <Table
+                        className="line-tier-table service-split-table"
+                        size="small"
+                        pagination={false}
+                        rowKey="serviceType"
+                        dataSource={SERVICE_SPLIT_SERVICE_TYPES.map((serviceType, rowIndex) => ({ serviceType, rowIndex }))}
+                        columns={[
+                          {
+                            title: 'Service Type',
+                            width: 110,
+                            render: (_, row) => (
+                              <>
+                                <Form.Item
+                                  name={[field.name, 'servicePricingSplits', row.rowIndex, 'serviceType']}
+                                  initialValue={row.serviceType}
+                                  hidden
+                                >
+                                  <Input />
+                                </Form.Item>
+                                <Typography.Text>{`Local ${row.serviceType}`}</Typography.Text>
+                              </>
+                            ),
+                          },
+                          ...(revenueSplitMode === 'By Percentage'
+                            ? [{
+                              title: 'Percentage (%)',
+                              width: 140,
+                              render: (_: unknown, row: { serviceType: ServiceSplitType; rowIndex: number }) => (
+                                <Form.Item
+                                  name={[field.name, 'servicePricingSplits', row.rowIndex, 'percentage']}
+                                  rules={[{ required: true, message: 'Enter a percentage' }]}
+                                  style={{ marginBottom: 0 }}
+                                  getValueFromEvent={(value: number | null) => {
+                                    const splits = (form.getFieldValue(['priceComponents', field.name, 'servicePricingSplits']) ?? []) as ServicePricingSplit[]
+                                    const currentValue = splits[row.rowIndex]?.percentage
+                                    if (value == null) return value
+                                    if (!handleSplitPercentageChange(row.rowIndex, value)) {
+                                      return currentValue
+                                    }
+                                    return value
+                                  }}
+                                >
+                                  <InputNumber
+                                    min={0}
+                                    max={100}
+                                    precision={2}
+                                    suffix="%"
+                                    style={{ width: '100%' }}
+                                  />
+                                </Form.Item>
+                              ),
+                            }]
+                            : []),
+                          {
+                            title: 'Amount ($)',
+                            width: 160,
+                            render: (_, row) => (
+                              <Form.Item
+                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'amount']}
+                                rules={[{ required: true, message: 'Enter an amount' }]}
+                                style={{ marginBottom: 0 }}
+                                getValueFromEvent={amountSplitReadOnly
+                                  ? undefined
+                                  : (value: number | null) => {
+                                    const splits = (form.getFieldValue(['priceComponents', field.name, 'servicePricingSplits']) ?? []) as ServicePricingSplit[]
+                                    const currentValue = splits[row.rowIndex]?.amount
+                                    if (value == null) return value
+                                    if (!handleSplitAmountChange(row.rowIndex, value)) {
+                                      return currentValue
+                                    }
+                                    return value
+                                  }}
+                              >
+                                <InputNumber
+                                  min={0}
+                                  precision={2}
+                                  prefix="$"
+                                  style={{ width: '100%' }}
+                                  readOnly={amountSplitReadOnly}
+                                />
+                              </Form.Item>
+                            ),
+                          },
+                          {
+                            title: 'GL code',
+                            render: (_, row) => (
+                              <Form.Item
+                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'glCode']}
+                                rules={[{ required: true, message: 'Enter a GL code' }]}
+                                style={{ marginBottom: 0 }}
+                              >
+                                <Input placeholder="e.g. 4100-100" />
+                              </Form.Item>
+                            ),
+                          },
+                          {
+                            title: 'Tax ID',
+                            render: (_, row) => (
+                              <Form.Item
+                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'taxId']}
+                                rules={[{ required: true, message: 'Enter a tax ID' }]}
+                                style={{ marginBottom: 0 }}
+                              >
+                                <Input placeholder="e.g. 13/622" />
+                              </Form.Item>
+                            ),
+                          },
+                          {
+                            title: 'Tax Treatment',
+                            width: 150,
+                            render: (_, row) => (
+                              <Form.Item
+                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'taxTreatment']}
+                                initialValue="Taxable"
+                                rules={[{ required: true, message: 'Select a tax treatment' }]}
+                                style={{ marginBottom: 0 }}
+                              >
+                                <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
+                              </Form.Item>
+                            ),
+                          },
+                        ]}
+                      />
+                    </>
+                  ) : null}
+                </>
+              ),
+            }]}
+          />
+        </div>
         <div className="span-two">
           {!isFlatPricing ? (
             <div className="pricing-tiers-block">
@@ -1238,50 +1277,841 @@ function PriceComponentFields({
   )
 }
 
-function EntitlementServiceFields({ serviceType }: { serviceType: EntitlementServiceType }) {
+function EligibilitySection({
+  enabledName,
+  title,
+  description,
+  children,
+}: {
+  enabledName: string[]
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  const form = Form.useFormInstance()
+  const enabled = Form.useWatch(enabledName, form)
+  const [open, setOpen] = useState(false)
+
   return (
-    <div className="entitlement-service-fields form-grid">
-      <Form.Item
-        name={['entitlements', serviceType, 'allocationMode']}
-        label="Allocation Mode"
-        rules={[{ required: true, message: 'Select an allocation mode' }]}
+    <div className={`eligibility-section ${enabled ? 'is-enabled' : 'is-disabled'}`}>
+      <div className="eligibility-section-header">
+        <Form.Item name={enabledName} valuePropName="checked" noStyle>
+          <Checkbox
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              if (event.target.checked) setOpen(true)
+              else setOpen(false)
+            }}
+          />
+        </Form.Item>
+        <button
+          type="button"
+          className="eligibility-section-toggle"
+          onClick={() => {
+            if (!enabled) return
+            setOpen((current) => !current)
+          }}
+          aria-expanded={open && !!enabled}
+        >
+          <span className={`eligibility-chevron ${open && enabled ? 'is-open' : ''}`}>▾</span>
+          <span className="eligibility-section-copy">
+            <Typography.Text strong>{title}</Typography.Text>
+            <Typography.Text type="secondary">{description}</Typography.Text>
+          </span>
+        </button>
+      </div>
+      {enabled && open ? (
+        <div className="eligibility-section-body">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function EligibilitySections() {
+  const form = Form.useFormInstance()
+  const ageCompatibilityEnabled = Form.useWatch(['eligibility', 'ageCompatibilityEnabled'], form)
+  const ageCompatibilityMode = Form.useWatch(['eligibility', 'ageCompatibilityMode'], form)
+  const locationCompatibilityMode = Form.useWatch(['eligibility', 'locationCompatibilityMode'], form)
+  const purchaseCompatibilityMode = Form.useWatch(['eligibility', 'purchaseCompatibilityMode'], form)
+  const useSegments = Form.useWatch(['eligibility', 'useSegments'], form)
+  const [locationQuery, setLocationQuery] = useState('')
+  const [channelQuery, setChannelQuery] = useState('')
+
+  const filteredLocations = useMemo(() => {
+    const q = locationQuery.trim().toLowerCase()
+    if (!q) return LOCATION_OPTIONS
+    return LOCATION_OPTIONS.filter((item) => item.label.toLowerCase().includes(q) || item.value.toLowerCase().includes(q))
+  }, [locationQuery])
+
+  const filteredChannels = useMemo(() => {
+    const q = channelQuery.trim().toLowerCase()
+    if (!q) return SALES_CHANNEL_OPTIONS
+    return SALES_CHANNEL_OPTIONS.filter((item) => item.label.toLowerCase().includes(q) || item.value.toLowerCase().includes(q))
+  }, [channelQuery])
+
+  return (
+    <div className="eligibility-sections">
+      <EligibilitySection
+        enabledName={['eligibility', 'ageCompatibilityEnabled']}
+        title="Age Compatibility"
+        description="Restrict product availability based on customer age"
       >
-        <Select options={ALLOCATION_MODE_OPTIONS.map((value) => ({ value }))} placeholder="Select" />
-      </Form.Item>
-      <Form.Item
-        name={['entitlements', serviceType, 'resetFrequency']}
-        label="Reset Frequency"
-        rules={[{ required: true, message: 'Select a reset frequency' }]}
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="By default, this product is available to customers of all ages. Define an age rule only if you need to restrict availability."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>Choose an age range, or require customers to be older than a specific age.</span>
+        </div>
+        <div className="eligibility-inner-card">
+          <Typography.Text strong>Age rule</Typography.Text>
+          <Form.Item name={['eligibility', 'ageCompatibilityMode']} className="eligibility-radio-item">
+            <Radio.Group className="eligibility-radio-group">
+              <Radio value="range">
+                <span className="eligibility-radio-copy">
+                  <Typography.Text>Age range (Min / Max)</Typography.Text>
+                  <Typography.Text type="secondary">
+                    This product will be available only to customers within the selected age range.
+                  </Typography.Text>
+                </span>
+              </Radio>
+              <Radio value="greaterThan">
+                <span className="eligibility-radio-copy">
+                  <Typography.Text>Greater than a specific age</Typography.Text>
+                  <Typography.Text type="secondary">
+                    This product will be available only to customers older than the age you select.
+                  </Typography.Text>
+                </span>
+              </Radio>
+            </Radio.Group>
+          </Form.Item>
+        </div>
+        <div className="eligibility-inner-card">
+          {ageCompatibilityMode === 'greaterThan' ? (
+            <Form.Item
+              name={['eligibility', 'ageGreaterThan']}
+              label="Minimum age (greater than)"
+              className="eligibility-select-item"
+              rules={ageCompatibilityEnabled ? [{ required: true, message: 'Enter a minimum age' }] : []}
+            >
+              <InputNumber min={0} max={120} precision={0} style={{ width: '100%' }} placeholder="e.g. 18" />
+            </Form.Item>
+          ) : (
+            <div className="form-grid">
+              <Form.Item
+                name={['eligibility', 'ageMin']}
+                label="Min age"
+                className="eligibility-select-item"
+                rules={ageCompatibilityEnabled
+                  ? [
+                    { required: true, message: 'Enter a minimum age' },
+                    {
+                      validator: async (_, value) => {
+                        const maxAge = form.getFieldValue(['eligibility', 'ageMax'])
+                        if (value != null && maxAge != null && Number(value) > Number(maxAge)) {
+                          throw new Error('Min age cannot be greater than Max age')
+                        }
+                      },
+                    },
+                  ]
+                  : []}
+                dependencies={[['eligibility', 'ageMax']]}
+              >
+                <InputNumber min={0} max={120} precision={0} style={{ width: '100%' }} placeholder="e.g. 18" />
+              </Form.Item>
+              <Form.Item
+                name={['eligibility', 'ageMax']}
+                label="Max age"
+                className="eligibility-select-item"
+                rules={ageCompatibilityEnabled
+                  ? [
+                    { required: true, message: 'Enter a maximum age' },
+                    {
+                      validator: async (_, value) => {
+                        const minAge = form.getFieldValue(['eligibility', 'ageMin'])
+                        if (value != null && minAge != null && Number(value) < Number(minAge)) {
+                          throw new Error('Max age cannot be less than Min age')
+                        }
+                      },
+                    },
+                  ]
+                  : []}
+                dependencies={[['eligibility', 'ageMin']]}
+              >
+                <InputNumber min={0} max={120} precision={0} style={{ width: '100%' }} placeholder="e.g. 65" />
+              </Form.Item>
+            </div>
+          )}
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'membershipAvailabilityEnabled']}
+        title="Membership Availability"
+        description="Restrict product availability to specific memberships"
       >
-        <Select options={ENTITLEMENT_RESET_FREQUENCY_OPTIONS.map((value) => ({ value }))} placeholder="Select" />
-      </Form.Item>
-      <Form.Item
-        name={['entitlements', serviceType, 'rolloverAllowed']}
-        label="Rollover allowed"
-        valuePropName="checked"
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="By default, this product is available across all memberships. To limit its availability, select specific memberships."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>If no memberships are selected, this product will be available across all memberships</span>
+        </div>
+        <div className="eligibility-inner-card">
+          <Form.Item
+            name={['eligibility', 'memberships']}
+            label="Select membership(s) where this product will be available"
+            className="eligibility-select-item"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              placeholder="Select"
+              options={MEMBERSHIP_OPTIONS}
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'locationAvailabilityEnabled']}
+        title="Location Availability"
+        description="Restrict product availability to specific locations"
       >
-        <Switch />
-      </Form.Item>
-      <Form.Item
-        name={['entitlements', serviceType, 'rolloverLimit']}
-        label="Rollover Limit"
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="If no locations are selected, this product will be available everywhere."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>If no locations are selected, this product will be available everywhere.</span>
+        </div>
+        <div className="eligibility-inner-card">
+          <Typography.Text strong>Compatibility Mode</Typography.Text>
+          <Form.Item name={['eligibility', 'locationCompatibilityMode']} className="eligibility-radio-item">
+            <Radio.Group className="eligibility-radio-group">
+              <Radio value="allow">
+                <span className="eligibility-radio-copy">
+                  <Typography.Text>Allow specific locations only</Typography.Text>
+                  <Typography.Text type="secondary">
+                    This product will be available ONLY on the locations you select (whitelist).
+                  </Typography.Text>
+                </span>
+              </Radio>
+              <Radio value="exclude">Exclude specific locations</Radio>
+            </Radio.Group>
+          </Form.Item>
+        </div>
+        <div className="eligibility-inner-card">
+          <Space.Compact className="eligibility-search-bar">
+            <Form.Item name={['eligibility', 'locationSearchBy']} noStyle>
+              <Select
+                style={{ width: 140 }}
+                options={LOCATION_SEARCH_BY_OPTIONS.map((value) => ({ value, label: value }))}
+              />
+            </Form.Item>
+            <Input
+              placeholder="Search by id"
+              value={locationQuery}
+              onChange={(event) => setLocationQuery(event.target.value)}
+              allowClear
+            />
+            <Button type="primary" icon={<SearchOutlined />} />
+          </Space.Compact>
+          <Form.Item
+            name={['eligibility', 'locations']}
+            label={locationCompatibilityMode === 'exclude'
+              ? 'Select location(s) to exclude'
+              : 'Select location(s) where this product will be available'}
+            className="eligibility-select-item"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              placeholder="Select"
+              options={filteredLocations}
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'salesChannelAvailabilityEnabled']}
+        title="Sales Channel Availability"
+        description="Restrict product availability to specific sales channels"
       >
-        <Input placeholder="e.g. 5 GB" />
-      </Form.Item>
-      <Form.Item
-        name={['entitlements', serviceType, 'expiry']}
-        label="Expiry"
-        rules={[{ required: true, message: 'Select an expiry option' }]}
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="By default, this product is available across all sales channels. To limit its availability, select specific channels."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>If no channels are selected, this product will be available across all sales channels</span>
+        </div>
+        <div className="eligibility-inner-card">
+          <Space.Compact className="eligibility-search-bar">
+            <Form.Item name={['eligibility', 'channelSearchBy']} noStyle>
+              <Select
+                style={{ width: 140 }}
+                options={CHANNEL_SEARCH_BY_OPTIONS.map((value) => ({ value, label: value }))}
+              />
+            </Form.Item>
+            <Input
+              placeholder="Search by name"
+              value={channelQuery}
+              onChange={(event) => setChannelQuery(event.target.value)}
+              allowClear
+            />
+            <Button type="primary" icon={<SearchOutlined />} />
+          </Space.Compact>
+          <Form.Item name={['eligibility', 'salesChannels']} className="eligibility-select-item">
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              placeholder="Select"
+              options={filteredChannels}
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'subscriptionControlEnabled']}
+        title="Subscription Control"
+        description="Prevent customers with an active subscription from purchasing again"
       >
-        <Select options={ENTITLEMENT_EXPIRY_OPTIONS.map((value) => ({ value }))} placeholder="Select" />
-      </Form.Item>
-      <Form.Item
-        name={['entitlements', serviceType, 'networkProfile']}
-        label="Network Profile"
-        rules={[{ required: true, message: 'Select a network profile' }]}
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>Customers with an active subscription cannot purchase this product again. They can renew once the current subscription ends.</span>
+        </div>
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>Customers with an active subscription cannot purchase this product again. They can renew once the current subscription ends.</span>
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'purchaseCompatibilityEnabled']}
+        title="Purchase Compatibility"
+        description="Control which products can be purchased together with this offer"
       >
-        <Select options={NETWORK_PROFILE_OPTIONS.map((value) => ({ value }))} placeholder="Select" />
-      </Form.Item>
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="By default, this product is compatible with all other products. Define rules only if you need to restrict combinations."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>By default, this product is compatible with all other products. Define rules only if you need to restrict combinations.</span>
+        </div>
+        <div className="eligibility-inner-card">
+          <Typography.Text strong>Compatibility mode</Typography.Text>
+          <Form.Item name={['eligibility', 'purchaseCompatibilityMode']} className="eligibility-radio-item">
+            <Radio.Group className="eligibility-radio-group">
+              <Radio value="allow">Allow specific products only</Radio>
+              <Radio value="exclude">Exclude specific products</Radio>
+            </Radio.Group>
+          </Form.Item>
+        </div>
+        <div className="eligibility-inner-card">
+          <Form.Item
+            name={['eligibility', 'compatibleProducts']}
+            label={purchaseCompatibilityMode === 'exclude'
+              ? 'Select product(s) to exclude'
+              : 'Select product(s) that can be purchased with this offer'}
+            className="eligibility-select-item"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              placeholder="Select"
+              options={COMPATIBLE_PRODUCT_OPTIONS}
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'customerEligibilityEnabled']}
+        title="Customer eligibility"
+        description="Restrict product availability based on customer attributes or segments"
+      >
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="By default, this product is available to all customers. Define rules only if you need to restrict availability based on customer profile."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>Products can be restricted to customers matching selected profile attributes.</span>
+        </div>
+        <div className="eligibility-option-card">
+          <Form.Item name={['eligibility', 'useCustomerAttributes']} valuePropName="checked" noStyle>
+            <Checkbox>
+              <span className="eligibility-radio-copy">
+                <Typography.Text strong>Customer attributes</Typography.Text>
+                <Typography.Text type="secondary">Restrict availability based on customer profile attributes</Typography.Text>
+              </span>
+            </Checkbox>
+          </Form.Item>
+        </div>
+        <div className="eligibility-option-card">
+          <Form.Item name={['eligibility', 'useSegments']} valuePropName="checked" noStyle>
+            <Checkbox>
+              <span className="eligibility-radio-copy">
+                <Typography.Text strong>Segments</Typography.Text>
+                <Typography.Text type="secondary">Restrict availability based on customer segments</Typography.Text>
+              </span>
+            </Checkbox>
+          </Form.Item>
+          {useSegments ? (
+            <div className="eligibility-option-card-body">
+              <div className="eligibility-note">
+                <InfoCircleOutlined />
+                <span>If no segments are selected, this product will be available for all customers</span>
+              </div>
+              <div className="eligibility-inner-card">
+                <Form.Item
+                  name={['eligibility', 'segments']}
+                  label="Determine customer segment(s) for this product"
+                  className="eligibility-select-item"
+                >
+                  <Select
+                    mode="multiple"
+                    allowClear
+                    showSearch
+                    placeholder="Select Segments"
+                    options={SEGMENT_OPTIONS}
+                    optionFilterProp="label"
+                  />
+                </Form.Item>
+                <Typography.Text type="secondary" className="eligibility-helper-link">
+                  Can&apos;t find your segments? See the{' '}
+                  <Typography.Link href="#" target="_blank">
+                    Segmentation List
+                  </Typography.Link>
+                </Typography.Text>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </EligibilitySection>
+
+      <EligibilitySection
+        enabledName={['eligibility', 'customerJourneyEnabled']}
+        title="Customer Journey Availability"
+        description="Restrict product availability to specific customer journeys"
+      >
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="If no journeys are selected, this product will be available for all journeys."
+        />
+        <div className="eligibility-note">
+          <InfoCircleOutlined />
+          <span>If no journeys are selected, this product will be available for all journeys.</span>
+        </div>
+        <div className="eligibility-inner-card">
+          <Form.Item
+            name={['eligibility', 'journeys']}
+            label="Select customer journeys(s) where product will be available"
+            className="eligibility-select-item"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              placeholder="Select"
+              options={JOURNEY_OPTIONS}
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </div>
+      </EligibilitySection>
+    </div>
+  )
+}
+
+function EntitlementPanels({
+  maxLines,
+  productName,
+}: {
+  maxLines: number
+  productName?: string
+}) {
+  const form = Form.useFormInstance<ListingFormValues>()
+  const dataApplicable = Form.useWatch(['entitlements', 'Data', 'applicable'], form)
+  const voiceApplicable = Form.useWatch(['entitlements', 'Voice', 'applicable'], form)
+  const smsApplicable = Form.useWatch(['entitlements', 'SMS', 'applicable'], form)
+  const applicableByType: Record<EntitlementServiceType, boolean> = {
+    Data: !!dataApplicable,
+    Voice: !!voiceApplicable,
+    SMS: !!smsApplicable,
+  }
+  const [activeKeys, setActiveKeys] = useState<string[]>(['Data'])
+  const [productPanelActive, setProductPanelActive] = useState<string[]>(['entitlement-product'])
+
+  const handleApplicableChange = (serviceType: EntitlementServiceType, checked: boolean) => {
+    setActiveKeys((current) => {
+      if (checked) {
+        return current.includes(serviceType) ? current : [...current, serviceType]
+      }
+      return current.filter((key) => key !== serviceType)
+    })
+  }
+
+  return (
+    <Collapse
+      className="entitlement-product-panel"
+      activeKey={productPanelActive}
+      onChange={(keys) => {
+        setProductPanelActive(Array.isArray(keys) ? keys : [keys])
+      }}
+      items={[{
+        key: 'entitlement-product',
+        label: productName?.trim() || 'Selected product',
+        children: (
+          <Collapse
+            className="entitlement-panels"
+            activeKey={activeKeys}
+            onChange={(keys) => {
+              const nextKeys = (Array.isArray(keys) ? keys : [keys]).filter(
+                (key) => applicableByType[key as EntitlementServiceType],
+              )
+              setActiveKeys(nextKeys)
+            }}
+            items={ENTITLEMENT_SERVICE_TYPES.map((serviceType) => ({
+              key: serviceType,
+              collapsible: applicableByType[serviceType] ? undefined : 'disabled',
+              label: (
+                <div className="entitlement-panel-label">
+                  <span>{ENTITLEMENT_PANEL_TITLES[serviceType]}</span>
+                  <span
+                    className="entitlement-panel-switch"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <Form.Item
+                      name={['entitlements', serviceType, 'applicable']}
+                      valuePropName="checked"
+                      noStyle
+                    >
+                      <Switch
+                        size="small"
+                        onChange={(checked) => handleApplicableChange(serviceType, checked)}
+                      />
+                    </Form.Item>
+                  </span>
+                </div>
+              ),
+              children: <EntitlementServiceFields serviceType={serviceType} maxLines={maxLines} />,
+            }))}
+          />
+        ),
+      }]}
+    />
+  )
+}
+
+function EntitlementServiceFields({
+  serviceType,
+  maxLines,
+}: {
+  serviceType: EntitlementServiceType
+  maxLines: number
+}) {
+  const { message } = App.useApp()
+  const form = Form.useFormInstance()
+  const applicable = Form.useWatch(['entitlements', serviceType, 'applicable'], form)
+  const enableSharing = Form.useWatch(['entitlements', serviceType, 'enableSharing'], form)
+  const sharingScope = Form.useWatch(['entitlements', serviceType, 'sharingScope'], form)
+  const allocationMode = Form.useWatch(['entitlements', serviceType, 'allocationMode'], form) as AllocationMode | undefined
+  const rolloverAllowed = Form.useWatch(['entitlements', serviceType, 'rolloverAllowed'], form)
+  const fieldsDisabled = !applicable
+  const showSharingFields = !!enableSharing
+  const showAllocationTable = showSharingFields && !!allocationMode
+  const lineCount = Math.max(1, Number(maxLines) || 1)
+  const valueReadOnly = allocationMode === 'Line'
+  const unitReadOnly = allocationMode === 'Line'
+  const allocationModeOptions = sharingScope === 'Line'
+    ? ALLOCATION_MODE_OPTIONS.filter((value) => value !== 'Shared Pool')
+    : ALLOCATION_MODE_OPTIONS
+
+  const syncAllocations = (mode?: AllocationMode) => {
+    const existing = form.getFieldValue(['entitlements', serviceType, 'allocations']) as EntitlementAllocationRow[] | undefined
+    form.setFieldValue(
+      ['entitlements', serviceType, 'allocations'],
+      buildEntitlementAllocations(lineCount, mode ?? allocationMode, existing),
+    )
+  }
+
+  const handleAllocationValueChange = (rowIndex: number, value: number | null): boolean => {
+    if (value == null) return false
+    if (value > TOTAL_ALLOCATION_AMOUNT) {
+      message.error(`Allocation values cannot exceed ${TOTAL_ALLOCATION_AMOUNT}`)
+      return false
+    }
+    const rows = (form.getFieldValue(['entitlements', serviceType, 'allocations']) ?? []) as EntitlementAllocationRow[]
+    const redistributed = redistributeEntitlementAllocations(rows, rowIndex, value)
+    if (!redistributed) return false
+    form.setFieldValue(['entitlements', serviceType, 'allocations'], redistributed)
+    return true
+  }
+
+  useEffect(() => {
+    if (!showAllocationTable) return
+    syncAllocations(allocationMode)
+  }, [showAllocationTable, allocationMode, lineCount, serviceType])
+
+  return (
+    <div className="entitlement-service-fields">
+      <div className="form-grid">
+        <Form.Item
+          name={['entitlements', serviceType, 'entitlementPolicyTitle']}
+          label="Entitlement Policy Title"
+        >
+          <Input placeholder="Enter entitlement policy title" />
+        </Form.Item>
+        <Form.Item
+          name={['entitlements', serviceType, 'networkProfile']}
+          label="Network Profile (FUP / QoS)"
+        >
+          <Select
+            options={NETWORK_PROFILE_OPTIONS.map((value) => ({ value }))}
+            placeholder="Select"
+            allowClear
+            disabled={fieldsDisabled}
+          />
+        </Form.Item>
+      </div>
+
+      <div className="entitlement-sharing-section">
+        <Flex align="center" gap={8} className="entitlement-sharing-header">
+          <Typography.Text strong className="entitlement-sharing-title">
+            Sharing
+          </Typography.Text>
+          <Form.Item
+            name={['entitlements', serviceType, 'enableSharing']}
+            valuePropName="checked"
+            noStyle
+          >
+            <Switch
+              disabled={fieldsDisabled}
+              onChange={(checked) => {
+                if (checked) {
+                  form.setFieldValue(['entitlements', serviceType, 'allocationMode'], undefined)
+                }
+              }}
+            />
+          </Form.Item>
+        </Flex>
+        {showSharingFields ? (
+          <div className="form-grid">
+            <Form.Item
+              name={['entitlements', serviceType, 'sharingScope']}
+              label="Sharing Scope"
+              rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a sharing scope' }]}
+            >
+              <Select
+                options={SHARING_SCOPE_OPTIONS.map((value) => ({ value, label: value }))}
+                placeholder="Select"
+                allowClear
+                disabled={fieldsDisabled}
+                onChange={(value: SharingScope) => {
+                  if (value === 'Line') {
+                    const currentMode = form.getFieldValue(['entitlements', serviceType, 'allocationMode'])
+                    if (currentMode === 'Shared Pool') {
+                      form.setFieldValue(['entitlements', serviceType, 'allocationMode'], undefined)
+                    }
+                  }
+                }}
+              />
+            </Form.Item>
+            <Form.Item
+              name={['entitlements', serviceType, 'allocationMode']}
+              label="Allocation Mode"
+              rules={fieldsDisabled ? [] : [{ required: true, message: 'Select an allocation mode' }]}
+            >
+              <Select
+                options={allocationModeOptions.map((value) => ({ value, label: value }))}
+                placeholder="Select"
+                allowClear
+                defaultActiveFirstOption={false}
+                disabled={fieldsDisabled}
+                onChange={(value: AllocationMode) => {
+                  syncAllocations(value)
+                }}
+              />
+            </Form.Item>
+          </div>
+        ) : null}
+        {showAllocationTable ? (
+          <div className="entitlement-allocation-block">
+            <Form.List name={['entitlements', serviceType, 'allocations']}>
+              {(allocationFields) => (
+                <Table
+                  className="line-tier-table entitlement-allocation-table"
+                  size="small"
+                  pagination={false}
+                  rowKey="key"
+                  dataSource={allocationFields}
+                  columns={[
+                    {
+                      title: 'Line',
+                      width: 100,
+                      render: (_, allocationField) => (
+                        <>
+                          <Form.Item
+                            name={[allocationField.name, 'line']}
+                            initialValue={allocationField.name + 1}
+                            hidden
+                          >
+                            <Input />
+                          </Form.Item>
+                          <Typography.Text>{allocationField.name + 1}</Typography.Text>
+                        </>
+                      ),
+                    },
+                    {
+                      title: 'Value',
+                      render: (_, allocationField) => (
+                        <Form.Item
+                          name={[allocationField.name, 'value']}
+                          rules={fieldsDisabled ? [] : [{ required: true, message: 'Enter a value' }]}
+                          style={{ marginBottom: 0 }}
+                          getValueFromEvent={allocationMode === 'Per Line'
+                            ? (value: number | null) => {
+                              const rows = (form.getFieldValue(['entitlements', serviceType, 'allocations']) ?? []) as EntitlementAllocationRow[]
+                              const currentValue = rows[allocationField.name]?.value
+                              if (value == null) return value
+                              if (!handleAllocationValueChange(allocationField.name, value)) {
+                                return currentValue
+                              }
+                              return value
+                            }
+                            : undefined}
+                        >
+                          <InputNumber
+                            min={0}
+                            max={allocationMode === 'Per Line' ? TOTAL_ALLOCATION_AMOUNT : undefined}
+                            precision={2}
+                            style={{ width: '100%' }}
+                            disabled={fieldsDisabled}
+                            readOnly={valueReadOnly}
+                          />
+                        </Form.Item>
+                      ),
+                    },
+                    {
+                      title: 'Unit',
+                      width: 120,
+                      render: (_, allocationField) => (
+                        <Form.Item
+                          name={[allocationField.name, 'unit']}
+                          initialValue="GB"
+                          rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a unit' }]}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <Select
+                            options={ALLOCATION_UNIT_OPTIONS.map((value) => ({ value, label: value }))}
+                            disabled={fieldsDisabled || unitReadOnly}
+                            open={unitReadOnly ? false : undefined}
+                          />
+                        </Form.Item>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+            </Form.List>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="entitlement-reset-section">
+        <Typography.Text strong className="entitlement-reset-title">Reset & Rollover</Typography.Text>
+        <div className="form-grid">
+          <Form.Item
+            name={['entitlements', serviceType, 'resetFrequency']}
+            label="Reset Frequency"
+            rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a reset frequency' }]}
+          >
+            <Select
+              options={ENTITLEMENT_RESET_FREQUENCY_OPTIONS.map((value) => ({ value }))}
+              placeholder="Select"
+              disabled={fieldsDisabled}
+            />
+          </Form.Item>
+          <Form.Item
+            name={['entitlements', serviceType, 'rolloverAllowed']}
+            label="Rollover allowed"
+            valuePropName="checked"
+          >
+            <Switch disabled={fieldsDisabled} />
+          </Form.Item>
+          {rolloverAllowed ? (
+            <>
+              <Form.Item
+                name={['entitlements', serviceType, 'rolloverLimitValue']}
+                label="Rollover Limit"
+                rules={fieldsDisabled ? [] : [{ required: true, message: 'Enter a rollover limit' }]}
+              >
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={fieldsDisabled} />
+              </Form.Item>
+              <Form.Item
+                name={['entitlements', serviceType, 'rolloverLimitUnit']}
+                label="Unit"
+                initialValue="GB"
+                rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a unit' }]}
+              >
+                <Select
+                  options={ALLOCATION_UNIT_OPTIONS.map((value) => ({ value, label: value }))}
+                  disabled={fieldsDisabled}
+                />
+              </Form.Item>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <Divider className="entitlement-fields-separator" />
+
+      <div className="form-grid">
+        <Form.Item
+          name={['entitlements', serviceType, 'expiry']}
+          label="Expiry"
+          rules={fieldsDisabled ? [] : [{ required: true, message: 'Select an expiry option' }]}
+        >
+          <Select
+            options={ENTITLEMENT_EXPIRY_OPTIONS.map((value) => ({ value }))}
+            placeholder="Select"
+            disabled={fieldsDisabled}
+          />
+        </Form.Item>
+      </div>
     </div>
   )
 }
@@ -1361,6 +2191,7 @@ export function ProductListingsPage() {
   const [selectedCatalogItemName, setSelectedCatalogItemName] = useState<string>()
   const [offerMaxLines, setOfferMaxLines] = useState(3)
   const [selectedOfferType, setSelectedOfferType] = useState<OfferType>('BASE_PLAN')
+  const [pricePanelsActive, setPricePanelsActive] = useState<string[]>(['price-panel-0'])
   const [form] = Form.useForm<ListingFormValues>()
 
   const selectedProductKey = Form.useWatch('productKey', form)
@@ -1395,12 +2226,10 @@ export function ProductListingsPage() {
   }, [watchedOfferType, form])
 
   useEffect(() => {
-    if (step === 1) {
-      const resolvedMaxLines = form.getFieldValue('maxLines')
-      if (resolvedMaxLines != null) setOfferMaxLines(Number(resolvedMaxLines))
-      const resolvedOfferType = form.getFieldValue('offerType')
-      if (resolvedOfferType) setSelectedOfferType(resolvedOfferType)
-    }
+    const resolvedMaxLines = form.getFieldValue('maxLines')
+    if (resolvedMaxLines != null) setOfferMaxLines(Number(resolvedMaxLines))
+    const resolvedOfferType = form.getFieldValue('offerType')
+    if (resolvedOfferType) setSelectedOfferType(resolvedOfferType)
   }, [step, form])
 
   const eligiblePickerProducts = useMemo(() => pickerCatalog.filter((item) => (
@@ -1514,7 +2343,7 @@ export function ProductListingsPage() {
     form.resetFields()
     form.setFieldsValue({
       paymentModel: 'Postpaid',
-      paymentPolicy: 'Charge in Billing Account',
+      paymentPolicy: 'Standard Postpaid',
       chargingPolicy: 'Real-Time Policy',
       billingPolicy: 'Bill Cycle Policy',
       prorationPolicy: 'Daily Proration Policy',
@@ -1524,15 +2353,19 @@ export function ProductListingsPage() {
       maxLines: 3,
       sellable: true,
       status: 'Draft',
-      priceComponents: [defaultPriceComponent()],
+      priceComponents: [
+        defaultPriceComponent(),
+        defaultAdditionalLinePriceComponent(),
+        defaultOneTimeNetworkActivationFeeComponent(),
+      ],
       entitlements: defaultEntitlements(),
       channels: ['Web', 'Retail'],
-      country: 'United States',
-      customerAccess: 'All eligible customers',
+      eligibility: defaultEligibility(),
     })
     setPickedProductKey(undefined)
     setSelectedCatalogItemName(undefined)
     setSelectedOfferType('BASE_PLAN')
+    setPricePanelsActive(['price-panel-0'])
     setPickerMode('any')
     setPickerSearch('')
     setPickerOpen(true)
@@ -1558,16 +2391,21 @@ export function ProductListingsPage() {
       : catalogProduct?.typeLabel === 'Merchandise'
     form.setFieldsValue({
       productKey,
-      priceComponents: [{
-        ...defaultPriceComponent(),
-        amount: pickerItem?.basePrice ?? product?.basePrice,
-      }],
+      priceComponents: [
+        {
+          ...defaultPriceComponent(),
+          amount: pickerItem?.basePrice ?? product?.basePrice,
+        },
+        defaultAdditionalLinePriceComponent(),
+        defaultOneTimeNetworkActivationFeeComponent(),
+      ],
       name: `${name} listing`,
       code: offerCodeFromTitle(`${name} listing`),
       displayName: name,
       paymentModel: isMerchandise ? 'Prepaid' : 'Postpaid',
-      paymentPolicy: isMerchandise ? 'Charge Upfront from Wallet' : 'Charge in Billing Account',
+      paymentPolicy: isMerchandise ? 'Upfront Card' : 'Standard Postpaid',
     })
+    setPricePanelsActive(['price-panel-0'])
   }
 
   const nextStep = async () => {
@@ -1876,7 +2714,20 @@ export function ProductListingsPage() {
                   className="form-card"
                   title={<SectionTitle title="Policies" description="Configure charging, billing, and proration behaviour." />}
                 >
-                  <div className="form-grid three">
+                  <div className="form-grid four">
+                    <Form.Item
+                      name="paymentPolicy"
+                      label="Payment Policy"
+                      initialValue="Standard Postpaid"
+                      rules={[{ required: true }]}
+                    >
+                      <Select
+                        options={[
+                          { value: 'Standard Postpaid' },
+                          { value: 'Upfront Card' },
+                        ]}
+                      />
+                    </Form.Item>
                     <Form.Item name="chargingPolicy" label="Charging Policy" rules={[{ required: true }]}>
                       <Select
                         options={[
@@ -1907,17 +2758,61 @@ export function ProductListingsPage() {
                   <Form.List name="priceComponents">
                     {(fields, { add, remove }) => (
                       <Space orientation="vertical" size={16} className="full-width">
-                        {fields.map((field) => (
-                          <PriceComponentFields
-                            key={field.key}
-                            field={field}
-                            productName={pricingProductName}
-                            offerType={selectedOfferType}
-                            maxLines={pricingMaxLines}
-                            canRemove={field.name > 0}
-                            onRemove={() => remove(field.name)}
-                          />
-                        ))}
+                        {fields.map((field) => {
+                          const componentLabel = form.getFieldValue(['priceComponents', field.name, 'componentLabel']) as string | undefined
+                          const pricingType = form.getFieldValue(['priceComponents', field.name, 'pricingType']) as PricingType | undefined
+                          const feeDefinition = form.getFieldValue(['priceComponents', field.name, 'feeDefinition']) as FeeDefinition | undefined
+                          const panelKey = `price-panel-${field.name}`
+                          const panelLabel = field.name === 0 ? (
+                            <Flex align="center" gap={8} wrap="wrap">
+                              <span>{pricingProductName?.trim() || 'Pricing component'}</span>
+                              <Tag color="blue">{offerTypeTitle(selectedOfferType)}</Tag>
+                            </Flex>
+                          ) : (
+                            componentLabel || priceComponentTitle(pricingType, feeDefinition)
+                          )
+
+                          return (
+                            <Collapse
+                              key={field.key}
+                              className="price-component-panel"
+                              activeKey={pricePanelsActive}
+                              onChange={(keys) => {
+                                setPricePanelsActive(Array.isArray(keys) ? keys : [keys])
+                              }}
+                              items={[{
+                                key: panelKey,
+                                label: panelLabel,
+                                extra: field.name > 0 ? (
+                                  <Button
+                                    type="text"
+                                    danger
+                                    size="small"
+                                    icon={<DeleteOutlined />}
+                                    aria-label="Remove pricing component"
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      remove(field.name)
+                                      setPricePanelsActive((current) => (
+                                        current.filter((key) => key !== panelKey)
+                                      ))
+                                    }}
+                                  />
+                                ) : null,
+                                children: (
+                                  <PriceComponentFields
+                                    field={field}
+                                    productName={pricingProductName}
+                                    offerType={selectedOfferType}
+                                    canRemove={false}
+                                    onRemove={() => remove(field.name)}
+                                    hideTitle
+                                  />
+                                ),
+                              }]}
+                            />
+                          )
+                        })}
                         <Button type="dashed" icon={<PlusOutlined />} onClick={() => add(defaultAdditionalPriceComponent())} block>
                           Add Pricing
                         </Button>
@@ -1933,20 +2828,22 @@ export function ProductListingsPage() {
               <Card
                 id="listing-section-entitlement"
                 className="form-card"
-                title={<SectionTitle title="Entitlement" description="Configure service allowances for this offer." />}
+                title={<SectionTitle title="Entitlement" description="Configure service allowances for this offer. Below sections are based on the available service types of the selected product." />}
               >
-                <Collapse
-                  className="entitlement-panels"
-                  items={ENTITLEMENT_SERVICE_TYPES.map((serviceType) => ({
-                    key: serviceType,
-                    label: serviceType,
-                    children: <EntitlementServiceFields serviceType={serviceType} />,
-                  }))}
-                />
+                <EntitlementPanels maxLines={pricingMaxLines} productName={pricingProductName} />
               </Card>
             )}
 
             {step === 3 && (
+              <Card
+                className="form-card"
+                title={<SectionTitle title="Eligibility" description="Limit where and to whom the offer can be sold." area="CCI" />}
+              >
+                <EligibilitySections />
+              </Card>
+            )}
+
+            {step === 4 && (
               <Card
                 className="form-card"
                 title={<SectionTitle title="Display" description="Write the customer-facing content for this offer." />}
@@ -1963,38 +2860,6 @@ export function ProductListingsPage() {
                 <Form.Item name="channels" label="Sales channels" rules={[{ required: true }]}>
                   <Checkbox.Group options={['Web', 'Retail', 'Contact centre']} />
                 </Form.Item>
-              </Card>
-            )}
-
-            {step === 4 && (
-              <Card
-                className="form-card"
-                title={<SectionTitle title="Eligibility" description="Limit where and to whom the offer can be sold." area="CCI" />}
-              >
-                <div className="form-grid">
-                  <Form.Item name="country" label="Market" rules={[{ required: true }]}>
-                    <Select
-                      showSearch
-                      options={[
-                        { value: 'United States' },
-                        { value: 'Canada' },
-                        { value: 'United Kingdom' },
-                      ]}
-                    />
-                  </Form.Item>
-                  <Form.Item name="customerAccess" label="Customer access" rules={[{ required: true }]}>
-                    <Select
-                      options={[
-                        { value: 'All eligible customers' },
-                        { value: 'New customers' },
-                        { value: 'Existing customers' },
-                      ]}
-                    />
-                  </Form.Item>
-                </div>
-                <div className="hint-box">
-                  Account standing, address validation, and regulatory checks are applied by the platform.
-                </div>
               </Card>
             )}
 
@@ -2061,8 +2926,19 @@ export function ProductListingsPage() {
                   </div>
                   <div className="review-item">
                     <Typography.Text type="secondary">Availability</Typography.Text>
-                    <Typography.Text strong>{review.country || 'Not set'}</Typography.Text>
-                    <Typography.Text type="secondary">{review.customerAccess}</Typography.Text>
+                    <Typography.Text strong>
+                      {review.eligibility?.salesChannels?.length
+                        ? `${review.eligibility.salesChannels.length} sales channel${review.eligibility.salesChannels.length === 1 ? '' : 's'}`
+                        : 'All sales channels'}
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      {review.eligibility?.locations?.length
+                        ? `${review.eligibility.locations.length} location${review.eligibility.locations.length === 1 ? '' : 's'}`
+                        : 'All locations'}
+                      {review.eligibility?.journeys?.length
+                        ? ` · ${review.eligibility.journeys.length} journey${review.eligibility.journeys.length === 1 ? '' : 's'}`
+                        : ''}
+                    </Typography.Text>
                   </div>
                 </div>
                 <Divider />
