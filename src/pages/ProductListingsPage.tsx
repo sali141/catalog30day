@@ -53,17 +53,21 @@ type ChargingPolicy = 'Real-Time Policy' | 'Advance Policy' | 'Arrears Policy'
 type BillingPolicyOption = 'Bill Cycle Policy'
 type ProrationPolicy = 'Daily Proration Policy'
 type PricingType = 'Reccuring' | 'Fee'
-type FeeDefinition = 'Network Activation Fee' | 'Compliance Fee' | 'Regulatory Fee'
+type FeeDefinition =
+  | 'Network Activation Fee'
+  | 'Late Payment Fee'
+  | 'Compliance Fee'
+  | 'Compliance Fee (Phone)'
+  | 'Compliance Fee (Smartwatch)'
+  | 'Compliance Fee (SpeakEasy)'
+  | 'Opt-Out Fee (disable AutoPay)'
+  | 'Regulatory Fee'
+  | 'USF Cellular'
 type PricingBasis = 'Flat' | 'Per Tier'
 type PricingUnit = 'Per Line' | 'Per Account'
-type PricingFrequency = 'Monthly' | 'Annually'
+type PricingFrequency = 'Monthly' | 'Annually' | 'On Activation'
 type TaxTreatment = 'Taxable' | 'Exempt' | 'Zero-related'
 
-type PolicyInheritOption = 'Inherit from Offer'
-type PaymentPolicyOverride = PolicyInheritOption | PaymentPolicy
-type ChargingPolicyOverride = PolicyInheritOption | ChargingPolicy
-type BillingPolicyOverride = PolicyInheritOption | BillingPolicyOption
-type ProrationPolicyOverride = PolicyInheritOption | ProrationPolicy
 type TierDimension = 'Line Count'
 
 type PriceTier = {
@@ -128,10 +132,6 @@ type PriceComponent = {
   revenueAllocationMode?: RevenueAllocationMode
   revenueSplitMode?: RevenueSplitMode
   servicePricingSplits?: ServicePricingSplit[]
-  paymentPolicy: PaymentPolicyOverride
-  chargingPolicy: ChargingPolicyOverride
-  billingPolicy: BillingPolicyOverride
-  prorationPolicy: ProrationPolicyOverride
   amount?: number
   tierDimension?: TierDimension
   tiers?: PriceTier[]
@@ -163,16 +163,18 @@ type ListingFormValues = {
 
 type LocationCompatibilityMode = 'allow' | 'exclude'
 type PurchaseCompatibilityMode = 'allow' | 'exclude'
-type AgeCompatibilityMode = 'range' | 'greaterThan'
+type CustomerAttributeKind = 'Residency status' | 'Membership' | 'Age'
+type AttributeMatchMode = 'Include' | 'Exclude'
+
+type CustomerAttributeRule = {
+  attribute?: CustomerAttributeKind
+  matchMode?: AttributeMatchMode
+  values?: string[]
+  minValue?: number
+  maxValue?: number
+}
 
 type EligibilityFormValues = {
-  ageCompatibilityEnabled: boolean
-  ageCompatibilityMode: AgeCompatibilityMode
-  ageMin?: number
-  ageMax?: number
-  ageGreaterThan?: number
-  membershipAvailabilityEnabled: boolean
-  memberships: string[]
   locationAvailabilityEnabled: boolean
   locationCompatibilityMode: LocationCompatibilityMode
   locationSearchBy: string
@@ -186,6 +188,7 @@ type EligibilityFormValues = {
   compatibleProducts: string[]
   customerEligibilityEnabled: boolean
   useCustomerAttributes: boolean
+  attributeRules: CustomerAttributeRule[]
   useSegments: boolean
   segments: string[]
   customerJourneyEnabled: boolean
@@ -302,17 +305,116 @@ function OfferTypePicker({
   )
 }
 
-const PAYMENT_POLICY_OPTIONS: Record<PaymentModel, PaymentPolicy[]> = {
-  Postpaid: ['Standard Postpaid'],
-  Prepaid: ['Upfront Card'],
-}
-
 const PRICING_TYPE_OPTIONS: PricingType[] = ['Reccuring', 'Fee']
-const FEE_DEFINITION_OPTIONS: FeeDefinition[] = ['Network Activation Fee', 'Compliance Fee', 'Regulatory Fee']
+const FEE_DEFINITION_OPTIONS: FeeDefinition[] = [
+  'Network Activation Fee',
+  'Late Payment Fee',
+  'Compliance Fee',
+  'Compliance Fee (Phone)',
+  'Compliance Fee (Smartwatch)',
+  'Compliance Fee (SpeakEasy)',
+  'Opt-Out Fee (disable AutoPay)',
+  'Regulatory Fee',
+  'USF Cellular',
+]
+type FeeCatalogOption = {
+  label: FeeDefinition
+  code: string
+  priceLabel: string
+  category: string
+  amount?: number
+  pricingUnit?: PricingUnit
+  formula?: boolean
+}
+const FEE_CATALOG_OPTIONS: FeeCatalogOption[] = [
+  {
+    label: 'Network Activation Fee',
+    code: 'FEE_ACTIVATION',
+    priceLabel: '$10.00/ line',
+    category: 'ACTIVATION',
+    amount: 10,
+    pricingUnit: 'Per Line',
+  },
+  {
+    label: 'Late Payment Fee',
+    code: 'FEE_LATE',
+    priceLabel: '$5.00',
+    category: 'PENALTY',
+    amount: 5,
+  },
+  {
+    label: 'Compliance Fee (Phone)',
+    code: 'FEE_COMP_PHONE',
+    priceLabel: '$3.99/ mo',
+    category: 'MONTHLY',
+    amount: 3.99,
+  },
+  {
+    label: 'Compliance Fee (Smartwatch)',
+    code: 'FEE_COMP_WATCH',
+    priceLabel: '$0.62/ mo',
+    category: 'MONTHLY',
+    amount: 0.62,
+  },
+  {
+    label: 'Compliance Fee (SpeakEasy)',
+    code: 'FEE_COMP_SPEAK',
+    priceLabel: '$1.99/ mo',
+    category: 'MONTHLY',
+    amount: 1.99,
+  },
+  {
+    label: 'Opt-Out Fee (disable AutoPay)',
+    code: 'FEE_OPT_OUT',
+    priceLabel: '$5.00/ mo',
+    category: 'MONTHLY',
+    amount: 5,
+  },
+  {
+    label: 'Regulatory Fee',
+    code: 'FEE_REGULATORY',
+    priceLabel: '$0.01/ mo',
+    category: 'MONTHLY',
+    amount: 0.01,
+  },
+  {
+    label: 'USF Cellular',
+    code: 'FEE_USF',
+    priceLabel: 'Formula',
+    category: 'BILL_CALCULATION',
+    formula: true,
+  },
+]
+type PricingCatalogOption = {
+  label: string
+  priceLabel: string
+  pricingUnit: PricingUnit
+  category: string
+  amount: number
+  frequency: PricingFrequency
+}
+const PRICING_CATALOG_OPTIONS: PricingCatalogOption[] = [
+  {
+    label: 'Additional Line',
+    priceLabel: '$15.00',
+    pricingUnit: 'Per Line',
+    category: 'MONTHLY',
+    amount: 15,
+    frequency: 'Monthly',
+  },
+  {
+    label: 'Home Protection',
+    priceLabel: '$5.00',
+    pricingUnit: 'Per Account',
+    category: 'MONTHLY',
+    amount: 5,
+    frequency: 'Monthly',
+  },
+]
 const TAX_TREATMENT_OPTIONS: TaxTreatment[] = ['Taxable', 'Exempt', 'Zero-related']
 const PRICING_BASIS_OPTIONS: PricingBasis[] = ['Flat', 'Per Tier']
 const PRICING_UNIT_OPTIONS: PricingUnit[] = ['Per Line', 'Per Account']
-const FREQUENCY_OPTIONS: PricingFrequency[] = ['Monthly', 'Annually']
+const FREQUENCY_OPTIONS: PricingFrequency[] = ['Monthly', 'Annually', 'On Activation']
 const ENTITLEMENT_SERVICE_TYPES: EntitlementServiceType[] = ['Data', 'Voice', 'SMS']
 const ENTITLEMENT_PANEL_TITLES: Record<EntitlementServiceType, string> = {
   Data: 'Local Data (Unlimited)',
@@ -343,11 +445,19 @@ const SEGMENT_OPTIONS = [
   { value: 'postpaid', label: 'Postpaid' },
   { value: 'aarp-members', label: 'AARP Members' },
 ]
-const MEMBERSHIP_OPTIONS = [
-  { value: 'aarp', label: 'AARP' },
-  { value: 'military', label: 'Military' },
-  { value: 'student', label: 'Student' },
-  { value: 'senior', label: 'Senior' },
+const CUSTOMER_ATTRIBUTE_OPTIONS: CustomerAttributeKind[] = ['Residency status', 'Membership', 'Age']
+const ATTRIBUTE_MATCH_MODE_OPTIONS: AttributeMatchMode[] = ['Include', 'Exclude']
+const RESIDENCY_STATUS_OPTIONS = [
+  { value: 'Tourists', label: 'Tourists' },
+  { value: 'Working professionals', label: 'Working professionals' },
+  { value: 'Residents', label: 'Residents' },
+  { value: 'Students', label: 'Students' },
+]
+const MEMBERSHIP_ATTRIBUTE_OPTIONS = [
+  { value: 'AARP', label: 'AARP' },
+  { value: 'Military', label: 'Military' },
+  { value: 'Student', label: 'Student' },
+  { value: 'Senior', label: 'Senior' },
 ]
 const JOURNEY_OPTIONS = [
   { value: 'onAppPurchase', label: 'onAppPurchase' },
@@ -360,10 +470,6 @@ const CHANNEL_SEARCH_BY_OPTIONS = ['Name', 'ID']
 
 function defaultEligibility(): EligibilityFormValues {
   return {
-    ageCompatibilityEnabled: false,
-    ageCompatibilityMode: 'range',
-    membershipAvailabilityEnabled: false,
-    memberships: [],
     locationAvailabilityEnabled: false,
     locationCompatibilityMode: 'allow',
     locationSearchBy: 'Location ID',
@@ -377,6 +483,7 @@ function defaultEligibility(): EligibilityFormValues {
     compatibleProducts: [],
     customerEligibilityEnabled: false,
     useCustomerAttributes: false,
+    attributeRules: [],
     useSegments: false,
     segments: [],
     customerJourneyEnabled: false,
@@ -475,19 +582,6 @@ function redistributeEntitlementAllocations(
   })
 }
 
-const PAYMENT_POLICY_OVERRIDE_OPTIONS: PaymentPolicyOverride[] = [
-  'Inherit from Offer',
-  'Standard Postpaid',
-  'Upfront Card',
-]
-const CHARGING_POLICY_OVERRIDE_OPTIONS: ChargingPolicyOverride[] = [
-  'Inherit from Offer',
-  'Real-Time Policy',
-  'Advance Policy',
-  'Arrears Policy',
-]
-const BILLING_POLICY_OVERRIDE_OPTIONS: BillingPolicyOverride[] = ['Inherit from Offer', 'Bill Cycle Policy']
-const PRORATION_POLICY_OVERRIDE_OPTIONS: ProrationPolicyOverride[] = ['Inherit from Offer', 'Daily Proration Policy']
 const TIER_DIMENSION_OPTIONS: TierDimension[] = ['Line Count']
 const SERVICE_SPLIT_SERVICE_TYPES: ServiceSplitType[] = ['Data', 'Voice', 'SMS']
 const REVENUE_SPLIT_OPTIONS: RevenueSplitMode[] = ['Equally', 'By Percentage', 'By Amount']
@@ -656,40 +750,31 @@ function defaultPriceComponent(): PriceComponent {
     revenueAllocationMode: 'Mobile (100%)',
     revenueSplitMode: 'Equally',
     servicePricingSplits: SERVICE_SPLIT_SERVICE_TYPES.map((serviceType) => defaultServicePricingSplit(serviceType)),
-    paymentPolicy: 'Inherit from Offer',
-    chargingPolicy: 'Inherit from Offer',
-    billingPolicy: 'Inherit from Offer',
-    prorationPolicy: 'Inherit from Offer',
     tierDimension: 'Line Count',
     tiers: [defaultPriceTier()],
   }
 }
 
-function defaultAdditionalLinePriceComponent(): PriceComponent {
+function priceComponentFromPricingCatalog(option: PricingCatalogOption): PriceComponent {
   return {
     ...defaultPriceComponent(),
-    componentLabel: 'Additional Line',
     pricingType: 'Reccuring',
-    pricingUnit: 'Per Line',
-    frequency: 'Monthly',
+    componentLabel: option.label,
+    amount: option.amount,
+    pricingUnit: option.pricingUnit,
+    frequency: option.frequency,
   }
 }
 
-function defaultOneTimeNetworkActivationFeeComponent(): PriceComponent {
-  return {
-    ...defaultPriceComponent(),
-    componentLabel: 'Network Activation Fee',
-    pricingType: 'Fee',
-    pricingUnit: 'Per Line',
-    feeDefinition: 'Network Activation Fee',
-    frequency: undefined,
-  }
-}
-
-function defaultAdditionalPriceComponent(): PriceComponent {
+function priceComponentFromFeeCatalog(option: FeeCatalogOption): PriceComponent {
   return {
     ...defaultPriceComponent(),
     pricingType: 'Fee',
+    componentLabel: option.label,
+    feeDefinition: option.label,
+    amount: option.amount,
+    pricingUnit: option.pricingUnit ?? 'Per Line',
+    frequency: 'On Activation',
   }
 }
 
@@ -737,9 +822,8 @@ function PriceComponentFields({
   const componentLabel = Form.useWatch(['priceComponents', field.name, 'componentLabel'], form)
   const componentTitle = componentLabel || priceComponentTitle(pricingType, feeDefinition)
   const primaryComponentName = effectiveProductName?.trim()
-  const isAdditionalLine = componentLabel === 'Additional Line'
-  const isNetworkActivationFee = pricingType === 'Fee' && feeDefinition === 'Network Activation Fee'
-  const priceOptional = isAdditionalLine || isNetworkActivationFee
+  const isFormulaFee = feeDefinition === 'USF Cellular'
+  const priceOptional = isFormulaFee
   const flatAmount = Form.useWatch(['priceComponents', field.name, 'amount'], form)
   const firstTierAmount = Form.useWatch(['priceComponents', field.name, 'tiers', 0, 'amount'], form)
   const mainPricingAmount = isFlatPricing ? flatAmount : firstTierAmount
@@ -906,6 +990,11 @@ function PriceComponentFields({
                 if (value !== 'Fee') {
                   form.setFieldValue(['priceComponents', field.name, 'feeDefinition'], undefined)
                 }
+                if (value === 'Fee') {
+                  form.setFieldValue(['priceComponents', field.name, 'frequency'], 'On Activation')
+                } else if (form.getFieldValue(['priceComponents', field.name, 'frequency']) === 'On Activation') {
+                  form.setFieldValue(['priceComponents', field.name, 'frequency'], 'Monthly')
+                }
                 if (value !== 'Reccuring') {
                   form.setFieldValue(['priceComponents', field.name, 'revenueAllocationMode'], 'Mobile (100%)')
                 }
@@ -928,24 +1017,21 @@ function PriceComponentFields({
               >
                 <Select options={PRICING_UNIT_OPTIONS.map((value) => ({ value }))} />
               </Form.Item>
-              {pricingType === 'Fee' ? (
-                <Form.Item
-                  name={[field.name, 'feeDefinition']}
-                  label="Associated Fee"
-                  rules={[{ required: true, message: 'Select an associated fee' }]}
-                >
-                  <Select options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
-                </Form.Item>
-              ) : (
-                <Form.Item
-                  name={[field.name, 'frequency']}
-                  label="Frequency"
-                  initialValue="Monthly"
-                  rules={[{ required: true, message: 'Select a frequency' }]}
-                >
-                  <Select options={FREQUENCY_OPTIONS.map((value) => ({ value }))} />
-                </Form.Item>
-              )}
+              <Form.Item
+                name={[field.name, 'frequency']}
+                label="Frequency / Validity"
+                initialValue={pricingType === 'Fee' ? 'On Activation' : 'Monthly'}
+                rules={[{ required: true, message: 'Select a frequency / validity' }]}
+              >
+                <Select options={FREQUENCY_OPTIONS.map((value) => ({ value }))} />
+              </Form.Item>
+              <Form.Item
+                name={[field.name, 'taxTreatment']}
+                label="Tax Treatment"
+                rules={[{ required: true, message: 'Select a tax treatment' }]}
+              >
+                <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
+              </Form.Item>
             </>
           ) : null}
         </div>
@@ -957,7 +1043,7 @@ function PriceComponentFields({
             }}
             items={[{
               key: 'revenue-allocation',
-              label: (
+              label: field.name === 0 ? (
                 <div className="revenue-allocation-panel-label">
                   <span>Revenue allocation</span>
                   <span
@@ -985,11 +1071,20 @@ function PriceComponentFields({
                     </Form.Item>
                   </span>
                 </div>
-              ),
+              ) : 'Revenue allocation',
               children: (
                 <>
+                  {field.name !== 0 ? (
+                    <Form.Item
+                      name={[field.name, 'revenueAllocationMode']}
+                      hidden
+                      initialValue="Mobile (100%)"
+                    >
+                      <Input />
+                    </Form.Item>
+                  ) : null}
                   {showMobileAllocation ? (
-                    <div className="form-grid three revenue-allocation-top-fields">
+                    <div className="form-grid revenue-allocation-top-fields">
                       <Form.Item
                         name={[field.name, 'glCode']}
                         label="GL Code"
@@ -1003,13 +1098,6 @@ function PriceComponentFields({
                         rules={[{ required: true, message: 'Enter a tax ID' }]}
                       >
                         <Input placeholder="e.g. 13/622" />
-                      </Form.Item>
-                      <Form.Item
-                        name={[field.name, 'taxTreatment']}
-                        label="Tax Treatment"
-                        rules={[{ required: true, message: 'Select a tax treatment' }]}
-                      >
-                        <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
                       </Form.Item>
                     </div>
                   ) : null}
@@ -1132,20 +1220,6 @@ function PriceComponentFields({
                               </Form.Item>
                             ),
                           },
-                          {
-                            title: 'Tax Treatment',
-                            width: 150,
-                            render: (_, row) => (
-                              <Form.Item
-                                name={[field.name, 'servicePricingSplits', row.rowIndex, 'taxTreatment']}
-                                initialValue="Taxable"
-                                rules={[{ required: true, message: 'Select a tax treatment' }]}
-                                style={{ marginBottom: 0 }}
-                              >
-                                <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
-                              </Form.Item>
-                            ),
-                          },
                         ]}
                       />
                     </>
@@ -1155,6 +1229,15 @@ function PriceComponentFields({
             }]}
           />
         </div>
+        {pricingType === 'Fee' ? (
+          <Form.Item
+            name={[field.name, 'feeDefinition']}
+            label="Associated Fee"
+            rules={[{ required: true, message: 'Select an associated fee' }]}
+          >
+            <Select options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
+          </Form.Item>
+        ) : null}
         <div className="span-two">
           {!isFlatPricing ? (
             <div className="pricing-tiers-block">
@@ -1240,39 +1323,6 @@ function PriceComponentFields({
           ) : null}
         </div>
       </div>
-      <div className="policy-override-section">
-        <Typography.Text strong className="policy-override-title">Policy Override</Typography.Text>
-        <div className="policy-override-grid">
-          <Form.Item
-            name={[field.name, 'paymentPolicy']}
-            label="Payment Policy"
-            rules={[{ required: true, message: 'Select a payment policy' }]}
-          >
-            <Select options={PAYMENT_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'chargingPolicy']}
-            label="Charging Policy"
-            rules={[{ required: true, message: 'Select a charging policy' }]}
-          >
-            <Select options={CHARGING_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'billingPolicy']}
-            label="Billing Policy"
-            rules={[{ required: true, message: 'Select a billing policy' }]}
-          >
-            <Select options={BILLING_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-          <Form.Item
-            name={[field.name, 'prorationPolicy']}
-            label="Proration Policy"
-            rules={[{ required: true, message: 'Select a proration policy' }]}
-          >
-            <Select options={PRORATION_POLICY_OVERRIDE_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-        </div>
-      </div>
     </div>
   )
 }
@@ -1329,12 +1379,157 @@ function EligibilitySection({
   )
 }
 
+function defaultCustomerAttributeRule(): CustomerAttributeRule {
+  return {
+    attribute: undefined,
+    matchMode: 'Include',
+    values: [],
+    minValue: undefined,
+    maxValue: undefined,
+  }
+}
+
+function CustomerAttributeRules() {
+  const form = Form.useFormInstance()
+  const attributeRules = Form.useWatch(['eligibility', 'attributeRules'], form) as CustomerAttributeRule[] | undefined
+
+  return (
+    <Form.List name={['eligibility', 'attributeRules']}>
+      {(fields, { add, remove }) => (
+        <div className="customer-attribute-rules">
+          {fields.map((field) => {
+            const attribute = attributeRules?.[field.name]?.attribute
+            const isNumericAttribute = attribute === 'Age'
+            const valueOptions = attribute === 'Membership'
+              ? MEMBERSHIP_ATTRIBUTE_OPTIONS
+              : RESIDENCY_STATUS_OPTIONS
+
+            return (
+              <div key={field.key} className="customer-attribute-rule">
+                <div className="customer-attribute-rule-header">
+                  <Form.Item
+                    name={[field.name, 'attribute']}
+                    label="Attribute"
+                    className="customer-attribute-field"
+                    rules={[{ required: true, message: 'Select an attribute' }]}
+                  >
+                    <Select
+                      placeholder="Select attribute"
+                      options={CUSTOMER_ATTRIBUTE_OPTIONS.map((value) => ({ value, label: value }))}
+                      onChange={() => {
+                        form.setFieldValue(['eligibility', 'attributeRules', field.name, 'values'], [])
+                        form.setFieldValue(['eligibility', 'attributeRules', field.name, 'minValue'], undefined)
+                        form.setFieldValue(['eligibility', 'attributeRules', field.name, 'maxValue'], undefined)
+                      }}
+                    />
+                  </Form.Item>
+                  <Button
+                    type="text"
+                    danger
+                    className="customer-attribute-rule-remove"
+                    icon={<DeleteOutlined />}
+                    aria-label="Remove rule"
+                    onClick={() => remove(field.name)}
+                  />
+                </div>
+                {!isNumericAttribute ? (
+                  <Form.Item
+                    name={[field.name, 'matchMode']}
+                    className="customer-attribute-match-mode"
+                    initialValue="Include"
+                  >
+                    <Radio.Group
+                      optionType="button"
+                      options={ATTRIBUTE_MATCH_MODE_OPTIONS.map((value) => ({ value, label: value }))}
+                    />
+                  </Form.Item>
+                ) : (
+                  <Form.Item name={[field.name, 'matchMode']} hidden initialValue="Include">
+                    <Input />
+                  </Form.Item>
+                )}
+                {isNumericAttribute ? (
+                  <div className="customer-attribute-numeric-row">
+                    <Form.Item
+                      name={[field.name, 'minValue']}
+                      label="Min"
+                      className="customer-attribute-numeric-value"
+                      rules={[
+                        { required: true, message: 'Enter a minimum' },
+                        {
+                          validator: async (_, value) => {
+                            const maxValue = form.getFieldValue(['eligibility', 'attributeRules', field.name, 'maxValue'])
+                            if (value != null && maxValue != null && Number(value) > Number(maxValue)) {
+                              throw new Error('Min cannot be greater than Max')
+                            }
+                          },
+                        },
+                      ]}
+                      dependencies={[['eligibility', 'attributeRules', field.name, 'maxValue']]}
+                    >
+                      <InputNumber min={0} precision={0} style={{ width: '100%' }} placeholder="Min" />
+                    </Form.Item>
+                    <Form.Item
+                      name={[field.name, 'maxValue']}
+                      label="Max"
+                      className="customer-attribute-numeric-value"
+                      rules={[
+                        { required: true, message: 'Enter a maximum' },
+                        {
+                          validator: async (_, value) => {
+                            const minValue = form.getFieldValue(['eligibility', 'attributeRules', field.name, 'minValue'])
+                            if (value != null && minValue != null && Number(value) < Number(minValue)) {
+                              throw new Error('Max cannot be less than Min')
+                            }
+                          },
+                        },
+                      ]}
+                      dependencies={[['eligibility', 'attributeRules', field.name, 'minValue']]}
+                    >
+                      <InputNumber min={0} precision={0} style={{ width: '100%' }} placeholder="Max" />
+                    </Form.Item>
+                  </div>
+                ) : (
+                  <Form.Item
+                    name={[field.name, 'values']}
+                    className="customer-attribute-values"
+                    rules={attribute
+                      ? [{ required: true, type: 'array', min: 1, message: 'Select at least one value' }]
+                      : []}
+                  >
+                    <Select
+                      mode="multiple"
+                      allowClear
+                      showSearch
+                      placeholder={attribute ? 'Select values' : 'Select an attribute first'}
+                      disabled={!attribute}
+                      options={valueOptions}
+                      optionFilterProp="label"
+                    />
+                  </Form.Item>
+                )}
+              </div>
+            )
+          })}
+          <Button
+            type="dashed"
+            icon={<PlusOutlined />}
+            className="customer-attribute-add-rule"
+            onClick={() => add(defaultCustomerAttributeRule())}
+          >
+            Add rule
+          </Button>
+        </div>
+      )}
+    </Form.List>
+  )
+}
+
 function EligibilitySections() {
   const form = Form.useFormInstance()
-  const ageCompatibilityEnabled = Form.useWatch(['eligibility', 'ageCompatibilityEnabled'], form)
-  const ageCompatibilityMode = Form.useWatch(['eligibility', 'ageCompatibilityMode'], form)
   const locationCompatibilityMode = Form.useWatch(['eligibility', 'locationCompatibilityMode'], form)
   const purchaseCompatibilityMode = Form.useWatch(['eligibility', 'purchaseCompatibilityMode'], form)
+  const useCustomerAttributes = Form.useWatch(['eligibility', 'useCustomerAttributes'], form)
   const useSegments = Form.useWatch(['eligibility', 'useSegments'], form)
   const [locationQuery, setLocationQuery] = useState('')
   const [channelQuery, setChannelQuery] = useState('')
@@ -1353,136 +1548,6 @@ function EligibilitySections() {
 
   return (
     <div className="eligibility-sections">
-      <EligibilitySection
-        enabledName={['eligibility', 'ageCompatibilityEnabled']}
-        title="Age Compatibility"
-        description="Restrict product availability based on customer age"
-      >
-        <Alert
-          type="info"
-          showIcon
-          icon={<InfoCircleOutlined />}
-          message="By default, this product is available to customers of all ages. Define an age rule only if you need to restrict availability."
-        />
-        <div className="eligibility-note">
-          <InfoCircleOutlined />
-          <span>Choose an age range, or require customers to be older than a specific age.</span>
-        </div>
-        <div className="eligibility-inner-card">
-          <Typography.Text strong>Age rule</Typography.Text>
-          <Form.Item name={['eligibility', 'ageCompatibilityMode']} className="eligibility-radio-item">
-            <Radio.Group className="eligibility-radio-group">
-              <Radio value="range">
-                <span className="eligibility-radio-copy">
-                  <Typography.Text>Age range (Min / Max)</Typography.Text>
-                  <Typography.Text type="secondary">
-                    This product will be available only to customers within the selected age range.
-                  </Typography.Text>
-                </span>
-              </Radio>
-              <Radio value="greaterThan">
-                <span className="eligibility-radio-copy">
-                  <Typography.Text>Greater than a specific age</Typography.Text>
-                  <Typography.Text type="secondary">
-                    This product will be available only to customers older than the age you select.
-                  </Typography.Text>
-                </span>
-              </Radio>
-            </Radio.Group>
-          </Form.Item>
-        </div>
-        <div className="eligibility-inner-card">
-          {ageCompatibilityMode === 'greaterThan' ? (
-            <Form.Item
-              name={['eligibility', 'ageGreaterThan']}
-              label="Minimum age (greater than)"
-              className="eligibility-select-item"
-              rules={ageCompatibilityEnabled ? [{ required: true, message: 'Enter a minimum age' }] : []}
-            >
-              <InputNumber min={0} max={120} precision={0} style={{ width: '100%' }} placeholder="e.g. 18" />
-            </Form.Item>
-          ) : (
-            <div className="form-grid">
-              <Form.Item
-                name={['eligibility', 'ageMin']}
-                label="Min age"
-                className="eligibility-select-item"
-                rules={ageCompatibilityEnabled
-                  ? [
-                    { required: true, message: 'Enter a minimum age' },
-                    {
-                      validator: async (_, value) => {
-                        const maxAge = form.getFieldValue(['eligibility', 'ageMax'])
-                        if (value != null && maxAge != null && Number(value) > Number(maxAge)) {
-                          throw new Error('Min age cannot be greater than Max age')
-                        }
-                      },
-                    },
-                  ]
-                  : []}
-                dependencies={[['eligibility', 'ageMax']]}
-              >
-                <InputNumber min={0} max={120} precision={0} style={{ width: '100%' }} placeholder="e.g. 18" />
-              </Form.Item>
-              <Form.Item
-                name={['eligibility', 'ageMax']}
-                label="Max age"
-                className="eligibility-select-item"
-                rules={ageCompatibilityEnabled
-                  ? [
-                    { required: true, message: 'Enter a maximum age' },
-                    {
-                      validator: async (_, value) => {
-                        const minAge = form.getFieldValue(['eligibility', 'ageMin'])
-                        if (value != null && minAge != null && Number(value) < Number(minAge)) {
-                          throw new Error('Max age cannot be less than Min age')
-                        }
-                      },
-                    },
-                  ]
-                  : []}
-                dependencies={[['eligibility', 'ageMin']]}
-              >
-                <InputNumber min={0} max={120} precision={0} style={{ width: '100%' }} placeholder="e.g. 65" />
-              </Form.Item>
-            </div>
-          )}
-        </div>
-      </EligibilitySection>
-
-      <EligibilitySection
-        enabledName={['eligibility', 'membershipAvailabilityEnabled']}
-        title="Membership Availability"
-        description="Restrict product availability to specific memberships"
-      >
-        <Alert
-          type="info"
-          showIcon
-          icon={<InfoCircleOutlined />}
-          message="By default, this product is available across all memberships. To limit its availability, select specific memberships."
-        />
-        <div className="eligibility-note">
-          <InfoCircleOutlined />
-          <span>If no memberships are selected, this product will be available across all memberships</span>
-        </div>
-        <div className="eligibility-inner-card">
-          <Form.Item
-            name={['eligibility', 'memberships']}
-            label="Select membership(s) where this product will be available"
-            className="eligibility-select-item"
-          >
-            <Select
-              mode="multiple"
-              allowClear
-              showSearch
-              placeholder="Select"
-              options={MEMBERSHIP_OPTIONS}
-              optionFilterProp="label"
-            />
-          </Form.Item>
-        </div>
-      </EligibilitySection>
-
       <EligibilitySection
         enabledName={['eligibility', 'locationAvailabilityEnabled']}
         title="Location Availability"
@@ -1669,13 +1734,27 @@ function EligibilitySections() {
         </div>
         <div className="eligibility-option-card">
           <Form.Item name={['eligibility', 'useCustomerAttributes']} valuePropName="checked" noStyle>
-            <Checkbox>
+            <Checkbox
+              onChange={(event) => {
+                if (event.target.checked) {
+                  const rules = form.getFieldValue(['eligibility', 'attributeRules']) as CustomerAttributeRule[] | undefined
+                  if (!rules?.length) {
+                    form.setFieldValue(['eligibility', 'attributeRules'], [defaultCustomerAttributeRule()])
+                  }
+                }
+              }}
+            >
               <span className="eligibility-radio-copy">
                 <Typography.Text strong>Customer attributes</Typography.Text>
                 <Typography.Text type="secondary">Restrict availability based on customer profile attributes</Typography.Text>
               </span>
             </Checkbox>
           </Form.Item>
+          {useCustomerAttributes ? (
+            <div className="eligibility-option-card-body">
+              <CustomerAttributeRules />
+            </div>
+          ) : null}
         </div>
         <div className="eligibility-option-card">
           <Form.Item name={['eligibility', 'useSegments']} valuePropName="checked" noStyle>
@@ -2192,6 +2271,8 @@ export function ProductListingsPage() {
   const [offerMaxLines, setOfferMaxLines] = useState(3)
   const [selectedOfferType, setSelectedOfferType] = useState<OfferType>('BASE_PLAN')
   const [pricePanelsActive, setPricePanelsActive] = useState<string[]>(['price-panel-0'])
+  const [feeCatalogOpen, setFeeCatalogOpen] = useState(false)
+  const [pricingCatalogOpen, setPricingCatalogOpen] = useState(false)
   const [form] = Form.useForm<ListingFormValues>()
 
   const selectedProductKey = Form.useWatch('productKey', form)
@@ -2199,13 +2280,9 @@ export function ProductListingsPage() {
   const watchedOfferType = Form.useWatch('offerType', form)
   const displayName = Form.useWatch('displayName', form)
   const offerType = watchedOfferType ?? selectedOfferType
-  const offerSubtypeOptions = offerSubtypesForType(offerType)
   const selectedProduct = initialProducts.find((product) => product.key === selectedProductKey)
   const selectedCatalogProduct = initialCatalogRows.find((product) => product.key === selectedProductKey)
   const selectedPickerItem = pickerCatalog.find((item) => item.key === selectedProductKey)
-  const selectedIsMerchandise = selectedPickerItem
-    ? selectedPickerItem.classification === 'Merchandise'
-    : selectedCatalogProduct?.typeLabel === 'Merchandise'
   const selectedItemName = selectedCatalogItemName
     ?? resolveCatalogItemName(selectedProductKey)
     ?? selectedPickerItem?.name
@@ -2355,8 +2432,6 @@ export function ProductListingsPage() {
       status: 'Draft',
       priceComponents: [
         defaultPriceComponent(),
-        defaultAdditionalLinePriceComponent(),
-        defaultOneTimeNetworkActivationFeeComponent(),
       ],
       entitlements: defaultEntitlements(),
       channels: ['Web', 'Retail'],
@@ -2396,8 +2471,6 @@ export function ProductListingsPage() {
           ...defaultPriceComponent(),
           amount: pickerItem?.basePrice ?? product?.basePrice,
         },
-        defaultAdditionalLinePriceComponent(),
-        defaultOneTimeNetworkActivationFeeComponent(),
       ],
       name: `${name} listing`,
       code: offerCodeFromTitle(`${name} listing`),
@@ -2667,48 +2740,7 @@ export function ProductListingsPage() {
                   >
                     <OfferTypePicker />
                   </Form.Item>
-                  <Form.Item name="offerSubType" label="Offer Sub Type">
-                    <Select
-                      disabled
-                      placeholder="Not applicable"
-                      options={offerSubtypeOptions.map((value) => ({ value }))}
-                    />
-                  </Form.Item>
-                  {offerType === 'BASE_PLAN' ? (
-                    <div className="form-grid">
-                      <Form.Item
-                        name="minLines"
-                        label="Min Lines"
-                        rules={[{ required: true, message: 'Enter the minimum number of lines' }]}
-                      >
-                        <InputNumber min={1} precision={0} style={{ width: '100%' }} />
-                      </Form.Item>
-                      <Form.Item
-                        name="maxLines"
-                        label="Max Lines"
-                        rules={[{ required: true, message: 'Enter the maximum number of lines' }]}
-                      >
-                        <InputNumber min={1} precision={0} style={{ width: '100%' }} />
-                      </Form.Item>
-                    </div>
-                  ) : null}
                 </Card>
-                {!selectedIsMerchandise ? (
-                <Card
-                  id="listing-section-purchase"
-                  className="form-card"
-                  title={<SectionTitle title="Payment" description="Configure how this listing is charged." />}
-                >
-                  <Form.Item name="paymentModel" label="Payment Model" rules={[{ required: true }]}>
-                    <Select
-                      options={[{ value: 'Postpaid' }, { value: 'Prepaid' }]}
-                      onChange={(value: PaymentModel) => {
-                        form.setFieldValue('paymentPolicy', PAYMENT_POLICY_OPTIONS[value][0])
-                      }}
-                    />
-                  </Form.Item>
-                </Card>
-              ) : null}
                 <Card
                   id="listing-section-policies"
                   className="form-card"
@@ -2813,9 +2845,78 @@ export function ProductListingsPage() {
                             />
                           )
                         })}
-                        <Button type="dashed" icon={<PlusOutlined />} onClick={() => add(defaultAdditionalPriceComponent())} block>
-                          Add Pricing
-                        </Button>
+                        <Flex gap={8} className="full-width pricing-add-actions">
+                          <Dropdown
+                            trigger={['click']}
+                            open={pricingCatalogOpen}
+                            onOpenChange={setPricingCatalogOpen}
+                            placement="bottomLeft"
+                            popupRender={() => (
+                              <div className="fee-catalog-menu">
+                                {PRICING_CATALOG_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.label}
+                                    type="button"
+                                    className="fee-catalog-item"
+                                    onClick={() => {
+                                      const nextIndex = fields.length
+                                      add(priceComponentFromPricingCatalog(option))
+                                      setPricePanelsActive((current) => [...current, `price-panel-${nextIndex}`])
+                                      setPricingCatalogOpen(false)
+                                    }}
+                                  >
+                                    <PlusOutlined className="fee-catalog-item-icon" />
+                                    <span className="fee-catalog-item-copy">
+                                      <span className="fee-catalog-item-title">{option.label}</span>
+                                      <span className="fee-catalog-item-meta">
+                                        {option.priceLabel} / {option.pricingUnit} · {option.category}
+                                      </span>
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          >
+                            <Button type="dashed" icon={<PlusOutlined />} block>
+                              Add Pricing
+                            </Button>
+                          </Dropdown>
+                          <Dropdown
+                            trigger={['click']}
+                            open={feeCatalogOpen}
+                            onOpenChange={setFeeCatalogOpen}
+                            placement="bottomLeft"
+                            popupRender={() => (
+                              <div className="fee-catalog-menu">
+                                {FEE_CATALOG_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.code}
+                                    type="button"
+                                    className="fee-catalog-item"
+                                    onClick={() => {
+                                      const nextIndex = fields.length
+                                      add(priceComponentFromFeeCatalog(option))
+                                      setPricePanelsActive((current) => [...current, `price-panel-${nextIndex}`])
+                                      setFeeCatalogOpen(false)
+                                    }}
+                                  >
+                                    <PlusOutlined className="fee-catalog-item-icon" />
+                                    <span className="fee-catalog-item-copy">
+                                      <span className="fee-catalog-item-title">{option.label}</span>
+                                      <span className="fee-catalog-item-meta">
+                                        {option.code} · {option.priceLabel} · {option.category}
+                                      </span>
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          >
+                            <Button type="dashed" icon={<PlusOutlined />} block>
+                              Add Fee
+                            </Button>
+                          </Dropdown>
+                        </Flex>
                       </Space>
                     )}
                   </Form.List>
@@ -2958,7 +3059,6 @@ export function ProductListingsPage() {
               <Card className="listing-sections-panel" title="Listing sections" size="small">
                 {[
                   ['listing-section-basics', 'Offer Details'],
-                  ['listing-section-purchase', 'Payment'],
                   ['listing-section-policies', 'Policies'],
                 ].map(([id, label]) => (
                   <Button
