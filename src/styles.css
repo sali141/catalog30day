@@ -495,6 +495,13 @@ body {
   margin-bottom: 16px;
 }
 
+.entitlement-product-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
 .entitlement-panels {
   display: flex;
   flex-direction: column;
@@ -519,11 +526,33 @@ body {
   min-width: 0;
 }
 
+.entitlement-panels .ant-collapse-extra {
+  margin-inline-start: auto;
+}
+
+.entitlement-panel-allowance-tag {
+  margin-inline-end: 0;
+}
+
 .entitlement-service-fields {
   padding-top: 4px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.entitlement-qos-field .ant-form-item-control-input-content {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+.entitlement-qos-field .ant-tag {
+  white-space: normal;
+  max-width: 100%;
+  line-height: 1.4;
+  padding-block: 4px;
+  margin-inline-end: 0;
 }
 
 .entitlement-sharing-section {
@@ -1077,9 +1106,28 @@ body {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: var(--color-bg-container);
-  border: 1px solid var(--color-border-secondary);
+  background: var(--color-primary-bg);
+  border: 1px solid #91caff;
   border-radius: var(--radius-md);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.selected-product-row.is-telco {
+  background: var(--color-primary-bg);
+  border-color: #91caff;
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.selected-product-row.is-merchandise {
+  background: #f9f0ff;
+  border-color: #d3adf7;
+  box-shadow: inset 3px 0 0 #722ed1;
+}
+
+.selected-product-row.is-bundle {
+  background: #fff0f6;
+  border-color: #ffadd2;
+  box-shadow: inset 3px 0 0 #eb2f96;
 }
 
 .selected-product-copy {

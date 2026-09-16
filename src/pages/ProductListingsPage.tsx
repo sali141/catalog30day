@@ -77,11 +77,10 @@ type PriceTier = {
 }
 
 type ServiceSplitType = 'Data' | 'Voice' | 'SMS'
-type EntitlementServiceType = 'Data' | 'Voice' | 'SMS'
+type EntitlementServiceType = 'Data' | 'Voice' | 'SMS' | 'Insurance'
 type AllocationMode = 'Line' | 'Per Line' | 'Shared Pool'
 type EntitlementResetFrequency = 'Daily' | 'Monthly' | 'Bill Cycle' | 'None'
 type EntitlementExpiry = 'Expire' | 'Carry Over' | 'Replace'
-type NetworkProfile = '1 GB → 256 kbps'
 type RevenueSplitMode = 'Equally' | 'By Percentage' | 'By Amount'
 type RevenueAllocationMode = 'Mobile (100%)' | 'Split'
 
@@ -96,7 +95,9 @@ type EntitlementAllocationRow = {
 
 type ServiceEntitlement = {
   applicable?: boolean
-  entitlementPolicyTitle?: string
+  allowance?: string
+  fupThreshold?: string
+  qosAfterFup?: string
   enableSharing?: boolean
   sharingScope?: SharingScope
   allocationMode?: AllocationMode
@@ -106,7 +107,6 @@ type ServiceEntitlement = {
   rolloverLimitValue?: number
   rolloverLimitUnit?: AllocationUnit
   expiry?: EntitlementExpiry
-  networkProfile?: NetworkProfile
 }
 
 type ServicePricingSplit = {
@@ -153,7 +153,7 @@ type ListingFormValues = {
   billingPolicy: BillingPolicyOption
   prorationPolicy: ProrationPolicy
   priceComponents: PriceComponent[]
-  entitlements: Record<EntitlementServiceType, ServiceEntitlement>
+  entitlements: Record<string, Record<EntitlementServiceType, ServiceEntitlement>>
   displayName: string
   subtitle?: string
   description?: string
@@ -256,7 +256,7 @@ function OfferTypePicker({
   onChange?: (value: OfferType) => void
 }) {
   const form = Form.useFormInstance<ListingFormValues>()
-  const productKeys = Form.useWatch('productKeys', form) as string[] | undefined
+  const productKeys = Form.useWatch('productKeys', { form, preserve: true }) as string[] | undefined
   const productCount = productKeys?.length ?? 0
   const availableCards = OFFER_TYPE_CARDS.filter((card) => (
     productCount > 1
@@ -430,10 +430,65 @@ const PRICING_BASIS_OPTIONS: PricingBasis[] = ['Flat', 'Per Tier']
 const PRICING_UNIT_OPTIONS: PricingUnit[] = ['Per Line', 'Per Account']
 const FREQUENCY_OPTIONS: PricingFrequency[] = ['Monthly', 'Annually', 'On Activation']
 const ENTITLEMENT_SERVICE_TYPES: EntitlementServiceType[] = ['Data', 'Voice', 'SMS']
+const MOBILE_PLAN_CATEGORIES = ['Value plans', 'Mobile plans', 'Senior plans']
+const PROTECTION_CATEGORIES = ['Protection']
 const ENTITLEMENT_PANEL_TITLES: Record<EntitlementServiceType, string> = {
-  Data: 'Local Data (Unlimited)',
-  Voice: 'Local Voice (Unlimited)',
-  SMS: 'Local SMS (Unlimited)',
+  Data: 'Local Data',
+  Voice: 'Local Voice',
+  SMS: 'Local SMS',
+  Insurance: 'Insurance',
+}
+const FUP_THRESHOLD_OPTIONS: Record<EntitlementServiceType, string[]> = {
+  Data: [
+    'CCI 1 GB then throttle',
+    'CCI 3 GB then throttle',
+    'CCI 5 GB then throttle',
+    'CCI 10 GB then throttle',
+  ],
+  Voice: [
+    'CCI Voice — no FUP (unlimited)',
+    'CCI Voice — 3,000 min then deprioritise',
+    'CCI Voice — unlimited with post-limit throttle (example)',
+  ],
+  SMS: [
+    'CCI SMS — no FUP (unlimited)',
+    'CCI SMS — 1,000 SMS/cycle then rate limit',
+    'CCI SMS — 500 SMS example throttle',
+  ],
+  Insurance: [
+    'CCI Insurance — standard cover',
+    'CCI Insurance — premium cover',
+    'CCI Insurance — full replacement',
+  ],
+}
+const QOS_AFTER_FUP_BY_SERVICE: Record<EntitlementServiceType, string> = {
+  Data: 'Throttle to 1.5 Mbps for remainder of cycle',
+  Voice: 'Deprioritise on congested cells',
+  SMS: 'Rate-limit to 30 SMS / hour',
+  Insurance: 'Claims processed within SLA',
+}
+const ENTITLEMENT_THRESHOLD_LABELS: Record<EntitlementServiceType, string> = {
+  Data: 'FUP Threshold',
+  Voice: 'FUP Threshold',
+  SMS: 'FUP Threshold',
+  Insurance: 'Coverage Profile',
+}
+const ENTITLEMENT_FOLLOW_ON_LABELS: Record<EntitlementServiceType, string> = {
+  Data: 'QoS after FUP',
+  Voice: 'QoS after FUP',
+  SMS: 'QoS after FUP',
+  Insurance: 'Benefit after claim',
+}
+
+function entitlementServicesForCategory(category: string): EntitlementServiceType[] {
+  const normalized = category.trim().toLowerCase()
+  if (MOBILE_PLAN_CATEGORIES.some((item) => item.toLowerCase() === normalized)) {
+    return ['Data', 'Voice', 'SMS']
+  }
+  if (PROTECTION_CATEGORIES.some((item) => item.toLowerCase() === normalized)) {
+    return ['Insurance']
+  }
+  return []
 }
 const LOCATION_OPTIONS = [
   { value: 'loc-001', label: 'loc-001 — Colombo' },
@@ -510,22 +565,41 @@ const ALLOCATION_UNIT_OPTIONS: AllocationUnit[] = ['GB', 'MB', 'KB']
 const TOTAL_ALLOCATION_AMOUNT = 15
 const ENTITLEMENT_RESET_FREQUENCY_OPTIONS: EntitlementResetFrequency[] = ['Daily', 'Monthly', 'Bill Cycle', 'None']
 const ENTITLEMENT_EXPIRY_OPTIONS: EntitlementExpiry[] = ['Expire', 'Carry Over', 'Replace']
-const NETWORK_PROFILE_OPTIONS: NetworkProfile[] = ['1 GB → 256 kbps']
 
 function defaultServiceEntitlement(applicable = false): ServiceEntitlement {
   return {
     applicable,
+    allowance: 'Unlimited',
     enableSharing: false,
     rolloverAllowed: false,
   }
 }
 
-function defaultEntitlements(): Record<EntitlementServiceType, ServiceEntitlement> {
-  return {
-    Data: defaultServiceEntitlement(true),
-    Voice: defaultServiceEntitlement(true),
-    SMS: defaultServiceEntitlement(true),
-  }
+function defaultEntitlements(
+  serviceTypes: EntitlementServiceType[] = ENTITLEMENT_SERVICE_TYPES,
+): Record<EntitlementServiceType, ServiceEntitlement> {
+  return Object.fromEntries(
+    serviceTypes.map((serviceType) => [serviceType, defaultServiceEntitlement(true)]),
+  ) as Record<EntitlementServiceType, ServiceEntitlement>
+}
+
+function defaultEntitlementsByProduct(
+  items: Array<{ key: string; category: string }>,
+  existing?: Record<string, Record<EntitlementServiceType, ServiceEntitlement>>,
+): Record<string, Record<EntitlementServiceType, ServiceEntitlement>> {
+  return Object.fromEntries(
+    items.map((item) => {
+      const serviceTypes = entitlementServicesForCategory(item.category)
+      const previous = existing?.[item.key]
+      const nextServices = Object.fromEntries(
+        serviceTypes.map((serviceType) => [
+          serviceType,
+          previous?.[serviceType] ?? defaultServiceEntitlement(true),
+        ]),
+      ) as Record<EntitlementServiceType, ServiceEntitlement>
+      return [item.key, nextServices]
+    }),
+  )
 }
 
 function equalAllocationValue(maxLines: number): number {
@@ -830,8 +904,8 @@ function PriceComponentFields({
   const pricingBasis = Form.useWatch(['priceComponents', field.name, 'pricingBasis'], form) ?? 'Flat'
   const isFlatPricing = pricingBasis === 'Flat'
   const offerTypeLabel = offerTypeTitle(offerType)
-  const productKeys = Form.useWatch('productKeys', form) as string[] | undefined
-  const displayName = Form.useWatch('displayName', form)
+  const productKeys = Form.useWatch('productKeys', { form, preserve: true }) as string[] | undefined
+  const displayName = Form.useWatch('displayName', { form, preserve: true })
   const effectiveProductName = productName ?? resolveCatalogItemName(productKeys?.[0]) ?? displayName
   const componentLabel = Form.useWatch(['priceComponents', field.name, 'componentLabel'], form)
   const componentTitle = componentLabel || priceComponentTitle(pricingType, feeDefinition)
@@ -1850,308 +1924,151 @@ function EligibilitySections() {
 
 function EntitlementPanels({
   maxLines,
-  productName,
+  items,
 }: {
   maxLines: number
-  productName?: string
+  items: PickerCatalogItem[]
 }) {
-  const [activeKeys, setActiveKeys] = useState<string[]>(['Data'])
-  const [productPanelActive, setProductPanelActive] = useState<string[]>(['entitlement-product'])
+  const [productPanelsActive, setProductPanelsActive] = useState<string[]>(() => (
+    items.map((item) => `entitlement-product-${item.key}`)
+  ))
+  const [servicePanelsActive, setServicePanelsActive] = useState<Record<string, string[]>>(() => (
+    Object.fromEntries(
+      items.map((item) => {
+        const serviceTypes = entitlementServicesForCategory(item.category)
+        return [item.key, serviceTypes[0] ? [serviceTypes[0]] : []]
+      }),
+    )
+  ))
+
+  const itemsKey = items.map((item) => item.key).join('|')
+
+  useEffect(() => {
+    setProductPanelsActive(items.map((item) => `entitlement-product-${item.key}`))
+    setServicePanelsActive(
+      Object.fromEntries(
+        items.map((item) => {
+          const serviceTypes = entitlementServicesForCategory(item.category)
+          return [item.key, serviceTypes[0] ? [serviceTypes[0]] : []]
+        }),
+      ),
+    )
+  }, [itemsKey])
+
+  if (!items.length) {
+    return <Typography.Text type="secondary">Select a product or bundle to configure entitlement.</Typography.Text>
+  }
 
   return (
-    <Collapse
-      className="entitlement-product-panel"
-      activeKey={productPanelActive}
-      onChange={(keys) => {
-        setProductPanelActive(Array.isArray(keys) ? keys : [keys])
-      }}
-      items={[{
-        key: 'entitlement-product',
-        label: productName?.trim() || 'Selected product',
-        children: (
+    <div className="entitlement-product-list">
+      {items.map((item) => {
+        const panelKey = `entitlement-product-${item.key}`
+        const serviceTypes = entitlementServicesForCategory(item.category)
+
+        return (
           <Collapse
-            className="entitlement-panels"
-            activeKey={activeKeys}
+            key={item.key}
+            className="entitlement-product-panel"
+            activeKey={productPanelsActive}
             onChange={(keys) => {
-              setActiveKeys(Array.isArray(keys) ? keys : [keys])
+              setProductPanelsActive(Array.isArray(keys) ? keys.map(String) : [String(keys)])
             }}
-            items={ENTITLEMENT_SERVICE_TYPES.map((serviceType) => ({
-              key: serviceType,
-              label: ENTITLEMENT_PANEL_TITLES[serviceType],
-              children: <EntitlementServiceFields serviceType={serviceType} maxLines={maxLines} />,
-            }))}
+            items={[{
+              key: panelKey,
+              label: item.name,
+              children: serviceTypes.length ? (
+                <Collapse
+                  className="entitlement-panels"
+                  activeKey={servicePanelsActive[item.key] ?? []}
+                  onChange={(keys) => {
+                    const next = Array.isArray(keys) ? keys.map(String) : [String(keys)]
+                    setServicePanelsActive((current) => ({ ...current, [item.key]: next }))
+                  }}
+                  items={serviceTypes.map((serviceType) => ({
+                    key: serviceType,
+                    label: ENTITLEMENT_PANEL_TITLES[serviceType],
+                    extra: (
+                      <Tag
+                        color="blue"
+                        className="entitlement-panel-allowance-tag"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        Unlimited
+                      </Tag>
+                    ),
+                    children: (
+                      <EntitlementServiceFields
+                        productKey={item.key}
+                        serviceType={serviceType}
+                        maxLines={maxLines}
+                      />
+                    ),
+                  }))}
+                />
+              ) : (
+                <Typography.Text type="secondary">
+                  No entitlement services configured for {item.category}.
+                </Typography.Text>
+              ),
+            }]}
           />
-        ),
-      }]}
-    />
+        )
+      })}
+    </div>
   )
 }
 
 function EntitlementServiceFields({
+  productKey,
   serviceType,
-  maxLines,
+  maxLines: _maxLines,
 }: {
+  productKey: string
   serviceType: EntitlementServiceType
   maxLines: number
 }) {
-  const { message } = App.useApp()
-  const form = Form.useFormInstance()
-  const enableSharing = Form.useWatch(['entitlements', serviceType, 'enableSharing'], form)
-  const sharingScope = Form.useWatch(['entitlements', serviceType, 'sharingScope'], form)
-  const allocationMode = Form.useWatch(['entitlements', serviceType, 'allocationMode'], form) as AllocationMode | undefined
-  const rolloverAllowed = Form.useWatch(['entitlements', serviceType, 'rolloverAllowed'], form)
-  const showSharingFields = !!enableSharing
-  const showAllocationTable = showSharingFields && !!allocationMode
-  const lineCount = Math.max(1, Number(maxLines) || 1)
-  const valueReadOnly = allocationMode === 'Line'
-  const unitReadOnly = allocationMode === 'Line'
-  const allocationModeOptions = sharingScope === 'Line'
-    ? ALLOCATION_MODE_OPTIONS.filter((value) => value !== 'Shared Pool')
-    : ALLOCATION_MODE_OPTIONS
-
-  const syncAllocations = (mode?: AllocationMode) => {
-    const existing = form.getFieldValue(['entitlements', serviceType, 'allocations']) as EntitlementAllocationRow[] | undefined
-    form.setFieldValue(
-      ['entitlements', serviceType, 'allocations'],
-      buildEntitlementAllocations(lineCount, mode ?? allocationMode, existing),
-    )
-  }
-
-  const handleAllocationValueChange = (rowIndex: number, value: number | null): boolean => {
-    if (value == null) return false
-    if (value > TOTAL_ALLOCATION_AMOUNT) {
-      message.error(`Allocation values cannot exceed ${TOTAL_ALLOCATION_AMOUNT}`)
-      return false
-    }
-    const rows = (form.getFieldValue(['entitlements', serviceType, 'allocations']) ?? []) as EntitlementAllocationRow[]
-    const redistributed = redistributeEntitlementAllocations(rows, rowIndex, value)
-    if (!redistributed) return false
-    form.setFieldValue(['entitlements', serviceType, 'allocations'], redistributed)
-    return true
-  }
-
-  useEffect(() => {
-    if (!showAllocationTable) return
-    syncAllocations(allocationMode)
-  }, [showAllocationTable, allocationMode, lineCount, serviceType])
+  const form = Form.useFormInstance<ListingFormValues>()
+  const fupThreshold = Form.useWatch(['entitlements', productKey, serviceType, 'fupThreshold'], form)
 
   return (
     <div className="entitlement-service-fields">
+      <Form.Item
+        name={['entitlements', productKey, serviceType, 'allowance']}
+        initialValue="Unlimited"
+        hidden
+      >
+        <Input />
+      </Form.Item>
       <div className="form-grid">
         <Form.Item
-          name={['entitlements', serviceType, 'entitlementPolicyTitle']}
-          label="Entitlement Policy Title"
-        >
-          <Input placeholder="Enter entitlement policy title" />
-        </Form.Item>
-        <Form.Item
-          name={['entitlements', serviceType, 'networkProfile']}
-          label="Network Profile (FUP / QoS)"
+          name={['entitlements', productKey, serviceType, 'fupThreshold']}
+          label={ENTITLEMENT_THRESHOLD_LABELS[serviceType]}
         >
           <Select
-            options={NETWORK_PROFILE_OPTIONS.map((value) => ({ value }))}
-            placeholder="Select"
             allowClear
-          />
-        </Form.Item>
-      </div>
-
-      <div className="entitlement-sharing-section">
-        <Flex align="center" gap={8} className="entitlement-sharing-header">
-          <Typography.Text strong className="entitlement-sharing-title">
-            Sharing
-          </Typography.Text>
-          <Form.Item
-            name={['entitlements', serviceType, 'enableSharing']}
-            valuePropName="checked"
-            noStyle
-          >
-            <Switch
-              onChange={(checked) => {
-                if (checked) {
-                  form.setFieldValue(['entitlements', serviceType, 'allocationMode'], undefined)
-                }
-              }}
-            />
-          </Form.Item>
-        </Flex>
-        {showSharingFields ? (
-          <div className="form-grid">
-            <Form.Item
-              name={['entitlements', serviceType, 'sharingScope']}
-              label="Sharing Scope"
-              rules={[{ required: true, message: 'Select a sharing scope' }]}
-            >
-              <Select
-                options={SHARING_SCOPE_OPTIONS.map((value) => ({ value, label: value }))}
-                placeholder="Select"
-                allowClear
-                onChange={(value: SharingScope) => {
-                  if (value === 'Line') {
-                    const currentMode = form.getFieldValue(['entitlements', serviceType, 'allocationMode'])
-                    if (currentMode === 'Shared Pool') {
-                      form.setFieldValue(['entitlements', serviceType, 'allocationMode'], undefined)
-                    }
-                  }
-                }}
-              />
-            </Form.Item>
-            <Form.Item
-              name={['entitlements', serviceType, 'allocationMode']}
-              label="Allocation Mode"
-              rules={[{ required: true, message: 'Select an allocation mode' }]}
-            >
-              <Select
-                options={allocationModeOptions.map((value) => ({ value, label: value }))}
-                placeholder="Select"
-                allowClear
-                defaultActiveFirstOption={false}
-                onChange={(value: AllocationMode) => {
-                  syncAllocations(value)
-                }}
-              />
-            </Form.Item>
-          </div>
-        ) : null}
-        {showAllocationTable ? (
-          <div className="entitlement-allocation-block">
-            <Form.List name={['entitlements', serviceType, 'allocations']}>
-              {(allocationFields) => (
-                <Table
-                  className="line-tier-table entitlement-allocation-table"
-                  size="small"
-                  pagination={false}
-                  rowKey="key"
-                  dataSource={allocationFields}
-                  columns={[
-                    {
-                      title: 'Line',
-                      width: 100,
-                      render: (_, allocationField) => (
-                        <>
-                          <Form.Item
-                            name={[allocationField.name, 'line']}
-                            initialValue={allocationField.name + 1}
-                            hidden
-                          >
-                            <Input />
-                          </Form.Item>
-                          <Typography.Text>{allocationField.name + 1}</Typography.Text>
-                        </>
-                      ),
-                    },
-                    {
-                      title: 'Value',
-                      render: (_, allocationField) => (
-                        <Form.Item
-                          name={[allocationField.name, 'value']}
-                          rules={[{ required: true, message: 'Enter a value' }]}
-                          style={{ marginBottom: 0 }}
-                          getValueFromEvent={allocationMode === 'Per Line'
-                            ? (value: number | null) => {
-                              const rows = (form.getFieldValue(['entitlements', serviceType, 'allocations']) ?? []) as EntitlementAllocationRow[]
-                              const currentValue = rows[allocationField.name]?.value
-                              if (value == null) return value
-                              if (!handleAllocationValueChange(allocationField.name, value)) {
-                                return currentValue
-                              }
-                              return value
-                            }
-                            : undefined}
-                        >
-                          <InputNumber
-                            min={0}
-                            max={allocationMode === 'Per Line' ? TOTAL_ALLOCATION_AMOUNT : undefined}
-                            precision={2}
-                            style={{ width: '100%' }}
-                            readOnly={valueReadOnly}
-                          />
-                        </Form.Item>
-                      ),
-                    },
-                    {
-                      title: 'Unit',
-                      width: 120,
-                      render: (_, allocationField) => (
-                        <Form.Item
-                          name={[allocationField.name, 'unit']}
-                          initialValue="GB"
-                          rules={[{ required: true, message: 'Select a unit' }]}
-                          style={{ marginBottom: 0 }}
-                        >
-                          <Select
-                            options={ALLOCATION_UNIT_OPTIONS.map((value) => ({ value, label: value }))}
-                            disabled={unitReadOnly}
-                            open={unitReadOnly ? false : undefined}
-                          />
-                        </Form.Item>
-                      ),
-                    },
-                  ]}
-                />
-              )}
-            </Form.List>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="entitlement-reset-section">
-        <Typography.Text strong className="entitlement-reset-title">Reset & Rollover</Typography.Text>
-        <div className="form-grid">
-          <Form.Item
-            name={['entitlements', serviceType, 'resetFrequency']}
-            label="Reset Frequency"
-            rules={[{ required: true, message: 'Select a reset frequency' }]}
-          >
-            <Select
-              options={ENTITLEMENT_RESET_FREQUENCY_OPTIONS.map((value) => ({ value }))}
-              placeholder="Select"
-              />
-          </Form.Item>
-          <Form.Item
-            name={['entitlements', serviceType, 'rolloverAllowed']}
-            label="Rollover allowed"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-          {rolloverAllowed ? (
-            <>
-              <Form.Item
-                name={['entitlements', serviceType, 'rolloverLimitValue']}
-                label="Rollover Limit"
-                rules={[{ required: true, message: 'Enter a rollover limit' }]}
-              >
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item
-                name={['entitlements', serviceType, 'rolloverLimitUnit']}
-                label="Unit"
-                initialValue="GB"
-                rules={[{ required: true, message: 'Select a unit' }]}
-              >
-                <Select
-                  options={ALLOCATION_UNIT_OPTIONS.map((value) => ({ value, label: value }))}
-                      />
-              </Form.Item>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      <Divider className="entitlement-fields-separator" />
-
-      <div className="form-grid">
-        <Form.Item
-          name={['entitlements', serviceType, 'expiry']}
-          label="Expiry"
-          rules={[{ required: true, message: 'Select an expiry option' }]}
-        >
-          <Select
-            options={ENTITLEMENT_EXPIRY_OPTIONS.map((value) => ({ value }))}
             placeholder="Select"
+            options={FUP_THRESHOLD_OPTIONS[serviceType].map((value) => ({ value, label: value }))}
+            onChange={(value?: string) => {
+              form.setFieldValue(
+                ['entitlements', productKey, serviceType, 'qosAfterFup'],
+                value ? QOS_AFTER_FUP_BY_SERVICE[serviceType] : undefined,
+              )
+            }}
           />
         </Form.Item>
+        {fupThreshold ? (
+          <Form.Item label={ENTITLEMENT_FOLLOW_ON_LABELS[serviceType]} className="entitlement-qos-field">
+            <Tag color="blue">{QOS_AFTER_FUP_BY_SERVICE[serviceType]}</Tag>
+            <Form.Item
+              name={['entitlements', productKey, serviceType, 'qosAfterFup']}
+              initialValue={QOS_AFTER_FUP_BY_SERVICE[serviceType]}
+              hidden
+              noStyle
+            >
+              <Input />
+            </Form.Item>
+          </Form.Item>
+        ) : null}
       </div>
     </div>
   )
@@ -2217,25 +2134,34 @@ function SelectedProductsList({
 
   return (
     <div className="selected-products-list">
-      {items.map((item) => (
-        <div key={item.key} className="selected-product-row">
-          <div className="selected-product-copy">
-            <Typography.Text strong>{item.name}</Typography.Text>
-            <Typography.Text type="secondary">{item.category}</Typography.Text>
+      {items.map((item) => {
+        const tone = item.kind === 'bundle'
+          ? 'bundle'
+          : item.classification === 'Merchandise'
+            ? 'merchandise'
+            : 'telco'
+
+        return (
+          <div key={item.key} className={`selected-product-row is-${tone}`}>
+            <div className="selected-product-copy">
+              <Typography.Text strong>{item.name}</Typography.Text>
+              <Typography.Text type="secondary">{item.category}</Typography.Text>
+            </div>
+            <Tag color={tone === 'bundle' ? 'magenta' : tone === 'telco' ? 'blue' : 'purple'}>
+              {item.kind === 'bundle' ? 'Bundle' : item.classification}
+            </Tag>
+            <Button
+              type="text"
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+              disabled={items.length <= 1}
+              aria-label={`Remove ${item.name}`}
+              onClick={() => onChange?.(value.filter((key) => key !== item.key))}
+            />
           </div>
-          <Tag color={item.kind === 'bundle' ? 'magenta' : item.classification === 'Telco' ? 'blue' : 'purple'}>
-            {item.kind === 'bundle' ? 'Bundle' : item.classification}
-          </Tag>
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-            aria-label={`Remove ${item.name}`}
-            onClick={() => onChange?.(value.filter((key) => key !== item.key))}
-          />
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -2280,10 +2206,11 @@ export function ProductListingsPage() {
   const [pricingCatalogOpen, setPricingCatalogOpen] = useState(false)
   const [form] = Form.useForm<ListingFormValues>()
 
-  const selectedProductKeys = Form.useWatch('productKeys', form) as string[] | undefined
-  const watchedMaxLines = Form.useWatch('maxLines', form)
-  const watchedOfferType = Form.useWatch('offerType', form)
-  const displayName = Form.useWatch('displayName', form)
+  // preserve:true keeps values after step Form.Items unmount
+  const selectedProductKeys = Form.useWatch('productKeys', { form, preserve: true }) as string[] | undefined
+  const watchedMaxLines = Form.useWatch('maxLines', { form, preserve: true })
+  const watchedOfferType = Form.useWatch('offerType', { form, preserve: true })
+  const displayName = Form.useWatch('displayName', { form, preserve: true })
   const offerType = watchedOfferType ?? selectedOfferType
   const primaryProductKey = selectedProductKeys?.[0]
   const selectedProduct = initialProducts.find((product) => product.key === primaryProductKey)
@@ -2300,6 +2227,25 @@ export function ProductListingsPage() {
       ?? displayName
   const pricingProductName = selectedPickerItems[0]?.name ?? selectedItemName
   const pricingMaxLines = Math.max(1, Number(watchedMaxLines ?? form.getFieldValue('maxLines') ?? offerMaxLines) || 1)
+  const selectedEntitlementSignature = selectedPickerItems
+    .map((item) => `${item.key}:${item.category}`)
+    .join('|')
+
+  useEffect(() => {
+    if (!selectedEntitlementSignature) return
+    const existing = form.getFieldValue('entitlements') as
+      | Record<string, Record<EntitlementServiceType, ServiceEntitlement>>
+      | undefined
+    const nextEntitlements = defaultEntitlementsByProduct(
+      selectedPickerItems.map((item) => ({ key: item.key, category: item.category })),
+      existing,
+    )
+    const currentKeys = Object.keys(existing ?? {}).sort().join('|')
+    const nextKeys = Object.keys(nextEntitlements).sort().join('|')
+    if (currentKeys !== nextKeys) {
+      form.setFieldValue('entitlements', nextEntitlements)
+    }
+  }, [selectedEntitlementSignature, form])
 
   useEffect(() => {
     const resolved = watchedMaxLines ?? form.getFieldValue('maxLines')
@@ -2443,7 +2389,7 @@ export function ProductListingsPage() {
       priceComponents: [
         defaultPriceComponent(),
       ],
-      entitlements: defaultEntitlements(),
+      entitlements: {},
       channels: ['Web', 'Retail'],
       eligibility: defaultEligibility(),
     })
@@ -2482,6 +2428,10 @@ export function ProductListingsPage() {
       offerSubType: subtypes[0],
       minLines: nextOfferType === 'BASE_PLAN' ? form.getFieldValue('minLines') ?? 1 : undefined,
       maxLines: nextOfferType === 'BASE_PLAN' ? form.getFieldValue('maxLines') ?? 3 : undefined,
+      entitlements: defaultEntitlementsByProduct(
+        pickerItems.map((item) => ({ key: item.key, category: item.category })),
+        form.getFieldValue('entitlements') as Record<string, Record<EntitlementServiceType, ServiceEntitlement>> | undefined,
+      ),
       priceComponents: [
         {
           ...defaultPriceComponent(),
@@ -2950,7 +2900,7 @@ export function ProductListingsPage() {
                 className="form-card"
                 title={<SectionTitle title="Entitlement" description="Configure service allowances for this offer. Below sections are based on the available service types of the selected product." />}
               >
-                <EntitlementPanels maxLines={pricingMaxLines} productName={pricingProductName} />
+                <EntitlementPanels maxLines={pricingMaxLines} items={selectedPickerItems} />
               </Card>
             )}
 
