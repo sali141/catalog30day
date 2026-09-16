@@ -213,28 +213,24 @@ const OFFER_TYPE_CARDS: Array<{
   title: string
   description: string
   icon: ReactNode
-  info: string
 }> = [
   {
     value: 'BASE_PLAN',
     title: 'Base plan',
     description: 'Subscriber anchor',
     icon: <HomeOutlined />,
-    info: 'Base plan — creates a mobile line anchor. Service type: MOBILE_LINE_ACCESS.',
   },
   {
     value: 'ADD_ON',
     title: 'Add-on',
     description: 'Requires anchor',
     icon: <AppstoreAddOutlined />,
-    info: 'Add-on — attaches to an existing base plan anchor.',
   },
   {
     value: 'MIXED_BUNDLE',
     title: 'Mixed Bundle',
     description: 'Combined offer',
     icon: <BarsOutlined />,
-    info: 'Mixed Bundle — combines multiple products or services into a single offer.',
   },
 ]
 
@@ -260,7 +256,6 @@ function OfferTypePicker({
   onChange?: (value: OfferType) => void
 }) {
   const form = Form.useFormInstance<ListingFormValues>()
-  const selected = OFFER_TYPE_CARDS.find((card) => card.value === value) ?? OFFER_TYPE_CARDS[0]
 
   const handleSelect = (nextValue: OfferType) => {
     const subtypes = offerSubtypesForType(nextValue)
@@ -294,13 +289,6 @@ function OfferTypePicker({
           )
         })}
       </div>
-      <Alert
-        className="offer-type-info-alert"
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        message={selected.info}
-      />
     </div>
   )
 }
@@ -509,8 +497,8 @@ function defaultServiceEntitlement(applicable = false): ServiceEntitlement {
 function defaultEntitlements(): Record<EntitlementServiceType, ServiceEntitlement> {
   return {
     Data: defaultServiceEntitlement(true),
-    Voice: defaultServiceEntitlement(false),
-    SMS: defaultServiceEntitlement(false),
+    Voice: defaultServiceEntitlement(true),
+    SMS: defaultServiceEntitlement(true),
   }
 }
 
@@ -1841,26 +1829,8 @@ function EntitlementPanels({
   maxLines: number
   productName?: string
 }) {
-  const form = Form.useFormInstance<ListingFormValues>()
-  const dataApplicable = Form.useWatch(['entitlements', 'Data', 'applicable'], form)
-  const voiceApplicable = Form.useWatch(['entitlements', 'Voice', 'applicable'], form)
-  const smsApplicable = Form.useWatch(['entitlements', 'SMS', 'applicable'], form)
-  const applicableByType: Record<EntitlementServiceType, boolean> = {
-    Data: !!dataApplicable,
-    Voice: !!voiceApplicable,
-    SMS: !!smsApplicable,
-  }
   const [activeKeys, setActiveKeys] = useState<string[]>(['Data'])
   const [productPanelActive, setProductPanelActive] = useState<string[]>(['entitlement-product'])
-
-  const handleApplicableChange = (serviceType: EntitlementServiceType, checked: boolean) => {
-    setActiveKeys((current) => {
-      if (checked) {
-        return current.includes(serviceType) ? current : [...current, serviceType]
-      }
-      return current.filter((key) => key !== serviceType)
-    })
-  }
 
   return (
     <Collapse
@@ -1877,35 +1847,11 @@ function EntitlementPanels({
             className="entitlement-panels"
             activeKey={activeKeys}
             onChange={(keys) => {
-              const nextKeys = (Array.isArray(keys) ? keys : [keys]).filter(
-                (key) => applicableByType[key as EntitlementServiceType],
-              )
-              setActiveKeys(nextKeys)
+              setActiveKeys(Array.isArray(keys) ? keys : [keys])
             }}
             items={ENTITLEMENT_SERVICE_TYPES.map((serviceType) => ({
               key: serviceType,
-              collapsible: applicableByType[serviceType] ? undefined : 'disabled',
-              label: (
-                <div className="entitlement-panel-label">
-                  <span>{ENTITLEMENT_PANEL_TITLES[serviceType]}</span>
-                  <span
-                    className="entitlement-panel-switch"
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                  >
-                    <Form.Item
-                      name={['entitlements', serviceType, 'applicable']}
-                      valuePropName="checked"
-                      noStyle
-                    >
-                      <Switch
-                        size="small"
-                        onChange={(checked) => handleApplicableChange(serviceType, checked)}
-                      />
-                    </Form.Item>
-                  </span>
-                </div>
-              ),
+              label: ENTITLEMENT_PANEL_TITLES[serviceType],
               children: <EntitlementServiceFields serviceType={serviceType} maxLines={maxLines} />,
             }))}
           />
@@ -1924,12 +1870,10 @@ function EntitlementServiceFields({
 }) {
   const { message } = App.useApp()
   const form = Form.useFormInstance()
-  const applicable = Form.useWatch(['entitlements', serviceType, 'applicable'], form)
   const enableSharing = Form.useWatch(['entitlements', serviceType, 'enableSharing'], form)
   const sharingScope = Form.useWatch(['entitlements', serviceType, 'sharingScope'], form)
   const allocationMode = Form.useWatch(['entitlements', serviceType, 'allocationMode'], form) as AllocationMode | undefined
   const rolloverAllowed = Form.useWatch(['entitlements', serviceType, 'rolloverAllowed'], form)
-  const fieldsDisabled = !applicable
   const showSharingFields = !!enableSharing
   const showAllocationTable = showSharingFields && !!allocationMode
   const lineCount = Math.max(1, Number(maxLines) || 1)
@@ -1982,7 +1926,6 @@ function EntitlementServiceFields({
             options={NETWORK_PROFILE_OPTIONS.map((value) => ({ value }))}
             placeholder="Select"
             allowClear
-            disabled={fieldsDisabled}
           />
         </Form.Item>
       </div>
@@ -1998,7 +1941,6 @@ function EntitlementServiceFields({
             noStyle
           >
             <Switch
-              disabled={fieldsDisabled}
               onChange={(checked) => {
                 if (checked) {
                   form.setFieldValue(['entitlements', serviceType, 'allocationMode'], undefined)
@@ -2012,13 +1954,12 @@ function EntitlementServiceFields({
             <Form.Item
               name={['entitlements', serviceType, 'sharingScope']}
               label="Sharing Scope"
-              rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a sharing scope' }]}
+              rules={[{ required: true, message: 'Select a sharing scope' }]}
             >
               <Select
                 options={SHARING_SCOPE_OPTIONS.map((value) => ({ value, label: value }))}
                 placeholder="Select"
                 allowClear
-                disabled={fieldsDisabled}
                 onChange={(value: SharingScope) => {
                   if (value === 'Line') {
                     const currentMode = form.getFieldValue(['entitlements', serviceType, 'allocationMode'])
@@ -2032,14 +1973,13 @@ function EntitlementServiceFields({
             <Form.Item
               name={['entitlements', serviceType, 'allocationMode']}
               label="Allocation Mode"
-              rules={fieldsDisabled ? [] : [{ required: true, message: 'Select an allocation mode' }]}
+              rules={[{ required: true, message: 'Select an allocation mode' }]}
             >
               <Select
                 options={allocationModeOptions.map((value) => ({ value, label: value }))}
                 placeholder="Select"
                 allowClear
                 defaultActiveFirstOption={false}
-                disabled={fieldsDisabled}
                 onChange={(value: AllocationMode) => {
                   syncAllocations(value)
                 }}
@@ -2079,7 +2019,7 @@ function EntitlementServiceFields({
                       render: (_, allocationField) => (
                         <Form.Item
                           name={[allocationField.name, 'value']}
-                          rules={fieldsDisabled ? [] : [{ required: true, message: 'Enter a value' }]}
+                          rules={[{ required: true, message: 'Enter a value' }]}
                           style={{ marginBottom: 0 }}
                           getValueFromEvent={allocationMode === 'Per Line'
                             ? (value: number | null) => {
@@ -2098,7 +2038,6 @@ function EntitlementServiceFields({
                             max={allocationMode === 'Per Line' ? TOTAL_ALLOCATION_AMOUNT : undefined}
                             precision={2}
                             style={{ width: '100%' }}
-                            disabled={fieldsDisabled}
                             readOnly={valueReadOnly}
                           />
                         </Form.Item>
@@ -2111,12 +2050,12 @@ function EntitlementServiceFields({
                         <Form.Item
                           name={[allocationField.name, 'unit']}
                           initialValue="GB"
-                          rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a unit' }]}
+                          rules={[{ required: true, message: 'Select a unit' }]}
                           style={{ marginBottom: 0 }}
                         >
                           <Select
                             options={ALLOCATION_UNIT_OPTIONS.map((value) => ({ value, label: value }))}
-                            disabled={fieldsDisabled || unitReadOnly}
+                            disabled={unitReadOnly}
                             open={unitReadOnly ? false : undefined}
                           />
                         </Form.Item>
@@ -2136,40 +2075,38 @@ function EntitlementServiceFields({
           <Form.Item
             name={['entitlements', serviceType, 'resetFrequency']}
             label="Reset Frequency"
-            rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a reset frequency' }]}
+            rules={[{ required: true, message: 'Select a reset frequency' }]}
           >
             <Select
               options={ENTITLEMENT_RESET_FREQUENCY_OPTIONS.map((value) => ({ value }))}
               placeholder="Select"
-              disabled={fieldsDisabled}
-            />
+              />
           </Form.Item>
           <Form.Item
             name={['entitlements', serviceType, 'rolloverAllowed']}
             label="Rollover allowed"
             valuePropName="checked"
           >
-            <Switch disabled={fieldsDisabled} />
+            <Switch />
           </Form.Item>
           {rolloverAllowed ? (
             <>
               <Form.Item
                 name={['entitlements', serviceType, 'rolloverLimitValue']}
                 label="Rollover Limit"
-                rules={fieldsDisabled ? [] : [{ required: true, message: 'Enter a rollover limit' }]}
+                rules={[{ required: true, message: 'Enter a rollover limit' }]}
               >
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={fieldsDisabled} />
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item
                 name={['entitlements', serviceType, 'rolloverLimitUnit']}
                 label="Unit"
                 initialValue="GB"
-                rules={fieldsDisabled ? [] : [{ required: true, message: 'Select a unit' }]}
+                rules={[{ required: true, message: 'Select a unit' }]}
               >
                 <Select
                   options={ALLOCATION_UNIT_OPTIONS.map((value) => ({ value, label: value }))}
-                  disabled={fieldsDisabled}
-                />
+                      />
               </Form.Item>
             </>
           ) : null}
@@ -2182,12 +2119,11 @@ function EntitlementServiceFields({
         <Form.Item
           name={['entitlements', serviceType, 'expiry']}
           label="Expiry"
-          rules={fieldsDisabled ? [] : [{ required: true, message: 'Select an expiry option' }]}
+          rules={[{ required: true, message: 'Select an expiry option' }]}
         >
           <Select
             options={ENTITLEMENT_EXPIRY_OPTIONS.map((value) => ({ value }))}
             placeholder="Select"
-            disabled={fieldsDisabled}
           />
         </Form.Item>
       </div>
