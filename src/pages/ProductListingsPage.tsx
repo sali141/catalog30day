@@ -146,7 +146,7 @@ type ListingFormValues = {
   maxLines?: number
   sellable: boolean
   status: ListingStatus
-  productKey: string
+  productKeys: string[]
   paymentModel: PaymentModel
   paymentPolicy: PaymentPolicy
   chargingPolicy: ChargingPolicy
@@ -256,6 +256,13 @@ function OfferTypePicker({
   onChange?: (value: OfferType) => void
 }) {
   const form = Form.useFormInstance<ListingFormValues>()
+  const productKeys = Form.useWatch('productKeys', form) as string[] | undefined
+  const productCount = productKeys?.length ?? 0
+  const availableCards = OFFER_TYPE_CARDS.filter((card) => (
+    productCount > 1
+      ? card.value === 'MIXED_BUNDLE'
+      : card.value === 'BASE_PLAN' || card.value === 'ADD_ON'
+  ))
 
   const handleSelect = (nextValue: OfferType) => {
     const subtypes = offerSubtypesForType(nextValue)
@@ -268,10 +275,29 @@ function OfferTypePicker({
     onChange?.(nextValue)
   }
 
+  useEffect(() => {
+    if (!productCount) return
+    const allowedValues = new Set(
+      productCount > 1
+        ? (['MIXED_BUNDLE'] as OfferType[])
+        : (['BASE_PLAN', 'ADD_ON'] as OfferType[]),
+    )
+    if (value && allowedValues.has(value)) return
+    const nextValue = productCount > 1 ? 'MIXED_BUNDLE' : 'BASE_PLAN'
+    const subtypes = offerSubtypesForType(nextValue)
+    form.setFieldsValue({
+      offerType: nextValue,
+      offerSubType: subtypes[0],
+      minLines: nextValue === 'BASE_PLAN' ? form.getFieldValue('minLines') ?? 1 : undefined,
+      maxLines: nextValue === 'BASE_PLAN' ? form.getFieldValue('maxLines') ?? 3 : undefined,
+    })
+    onChange?.(nextValue)
+  }, [productCount, value, form, onChange])
+
   return (
     <div className="offer-type-picker">
-      <div className="offer-type-grid">
-        {OFFER_TYPE_CARDS.map((card) => {
+      <div className={`offer-type-grid${availableCards.length === 1 ? ' is-single' : ''}`}>
+        {availableCards.map((card) => {
           const isSelected = value === card.value
           return (
             <button
@@ -804,9 +830,9 @@ function PriceComponentFields({
   const pricingBasis = Form.useWatch(['priceComponents', field.name, 'pricingBasis'], form) ?? 'Flat'
   const isFlatPricing = pricingBasis === 'Flat'
   const offerTypeLabel = offerTypeTitle(offerType)
-  const productKey = Form.useWatch('productKey', form)
+  const productKeys = Form.useWatch('productKeys', form) as string[] | undefined
   const displayName = Form.useWatch('displayName', form)
-  const effectiveProductName = productName ?? resolveCatalogItemName(productKey) ?? displayName
+  const effectiveProductName = productName ?? resolveCatalogItemName(productKeys?.[0]) ?? displayName
   const componentLabel = Form.useWatch(['priceComponents', field.name, 'componentLabel'], form)
   const componentTitle = componentLabel || priceComponentTitle(pricingType, feeDefinition)
   const primaryComponentName = effectiveProductName?.trim()
@@ -2170,6 +2196,50 @@ function resolveCatalogItemName(productKey?: string): string | undefined {
   return pickerItem?.name ?? product?.name ?? catalogProduct?.name
 }
 
+function resolvePickerCatalogItem(productKey: string): PickerCatalogItem | undefined {
+  return pickerCatalog.find((item) => item.key === productKey)
+}
+
+function SelectedProductsList({
+  value = [],
+  onChange,
+}: {
+  value?: string[]
+  onChange?: (value: string[]) => void
+}) {
+  const items = value
+    .map((key) => resolvePickerCatalogItem(key))
+    .filter((item): item is PickerCatalogItem => !!item)
+
+  if (!items.length) {
+    return <Typography.Text type="secondary">No products or bundles selected</Typography.Text>
+  }
+
+  return (
+    <div className="selected-products-list">
+      {items.map((item) => (
+        <div key={item.key} className="selected-product-row">
+          <div className="selected-product-copy">
+            <Typography.Text strong>{item.name}</Typography.Text>
+            <Typography.Text type="secondary">{item.category}</Typography.Text>
+          </div>
+          <Tag color={item.kind === 'bundle' ? 'magenta' : item.classification === 'Telco' ? 'blue' : 'purple'}>
+            {item.kind === 'bundle' ? 'Bundle' : item.classification}
+          </Tag>
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            aria-label={`Remove ${item.name}`}
+            onClick={() => onChange?.(value.filter((key) => key !== item.key))}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function SectionTitle({
   title,
   description,
@@ -2199,11 +2269,10 @@ export function ProductListingsPage() {
   const [view, setView] = useState<'all' | 'telco' | 'merchandise' | 'bundle'>('all')
   const [creating, setCreating] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickedProductKey, setPickedProductKey] = useState<string>()
+  const [pickedProductKeys, setPickedProductKeys] = useState<string[]>([])
   const [pickerMode, setPickerMode] = useState<'any' | 'Telco' | 'Merchandise' | 'bundles'>('any')
   const [pickerSearch, setPickerSearch] = useState('')
   const [step, setStep] = useState(0)
-  const [selectedCatalogItemName, setSelectedCatalogItemName] = useState<string>()
   const [offerMaxLines, setOfferMaxLines] = useState(3)
   const [selectedOfferType, setSelectedOfferType] = useState<OfferType>('BASE_PLAN')
   const [pricePanelsActive, setPricePanelsActive] = useState<string[]>(['price-panel-0'])
@@ -2211,21 +2280,25 @@ export function ProductListingsPage() {
   const [pricingCatalogOpen, setPricingCatalogOpen] = useState(false)
   const [form] = Form.useForm<ListingFormValues>()
 
-  const selectedProductKey = Form.useWatch('productKey', form)
+  const selectedProductKeys = Form.useWatch('productKeys', form) as string[] | undefined
   const watchedMaxLines = Form.useWatch('maxLines', form)
   const watchedOfferType = Form.useWatch('offerType', form)
   const displayName = Form.useWatch('displayName', form)
   const offerType = watchedOfferType ?? selectedOfferType
-  const selectedProduct = initialProducts.find((product) => product.key === selectedProductKey)
-  const selectedCatalogProduct = initialCatalogRows.find((product) => product.key === selectedProductKey)
-  const selectedPickerItem = pickerCatalog.find((item) => item.key === selectedProductKey)
-  const selectedItemName = selectedCatalogItemName
-    ?? resolveCatalogItemName(selectedProductKey)
-    ?? selectedPickerItem?.name
-    ?? selectedProduct?.name
-    ?? selectedCatalogProduct?.name
-    ?? displayName
-  const pricingProductName = selectedItemName
+  const primaryProductKey = selectedProductKeys?.[0]
+  const selectedProduct = initialProducts.find((product) => product.key === primaryProductKey)
+  const selectedCatalogProduct = initialCatalogRows.find((product) => product.key === primaryProductKey)
+  const selectedPickerItem = pickerCatalog.find((item) => item.key === primaryProductKey)
+  const selectedPickerItems = (selectedProductKeys ?? [])
+    .map((key) => resolvePickerCatalogItem(key))
+    .filter((item): item is PickerCatalogItem => !!item)
+  const selectedItemName = selectedPickerItems.length
+    ? selectedPickerItems.map((item) => item.name).join(', ')
+    : resolveCatalogItemName(primaryProductKey)
+      ?? selectedProduct?.name
+      ?? selectedCatalogProduct?.name
+      ?? displayName
+  const pricingProductName = selectedPickerItems[0]?.name ?? selectedItemName
   const pricingMaxLines = Math.max(1, Number(watchedMaxLines ?? form.getFieldValue('maxLines') ?? offerMaxLines) || 1)
 
   useEffect(() => {
@@ -2366,6 +2439,7 @@ export function ProductListingsPage() {
       maxLines: 3,
       sellable: true,
       status: 'Draft',
+      productKeys: [],
       priceComponents: [
         defaultPriceComponent(),
       ],
@@ -2373,8 +2447,7 @@ export function ProductListingsPage() {
       channels: ['Web', 'Retail'],
       eligibility: defaultEligibility(),
     })
-    setPickedProductKey(undefined)
-    setSelectedCatalogItemName(undefined)
+    setPickedProductKeys([])
     setSelectedOfferType('BASE_PLAN')
     setPricePanelsActive(['price-panel-0'])
     setPickerMode('any')
@@ -2383,37 +2456,45 @@ export function ProductListingsPage() {
   }
 
   const confirmProduct = () => {
-    if (!pickedProductKey) return
-    selectProduct(pickedProductKey)
+    if (!pickedProductKeys.length) return
+    selectProducts(pickedProductKeys)
     setStep(0)
     setPickerOpen(false)
     setCreating(true)
   }
 
-  const selectProduct = (productKey: string) => {
-    const product = initialProducts.find((item) => item.key === productKey)
-    const catalogProduct = initialCatalogRows.find((item) => item.key === productKey)
-    const pickerItem = pickerCatalog.find((item) => item.key === productKey)
-    if (!product && !catalogProduct && !pickerItem) return
-    const name = pickerItem?.name ?? product?.name ?? catalogProduct?.name ?? ''
-    setSelectedCatalogItemName(name)
-    const isMerchandise = pickerItem
-      ? pickerItem.classification === 'Merchandise'
-      : catalogProduct?.typeLabel === 'Merchandise'
+  const selectProducts = (productKeys: string[]) => {
+    const pickerItems = productKeys
+      .map((key) => resolvePickerCatalogItem(key))
+      .filter((item): item is PickerCatalogItem => !!item)
+    if (!pickerItems.length) return
+
+    const primary = pickerItems[0]
+    const product = initialProducts.find((item) => item.key === primary.key)
+    const names = pickerItems.map((item) => item.name)
+    const combinedName = names.join(', ')
+    const isMerchandise = pickerItems.every((item) => item.classification === 'Merchandise')
+    const nextOfferType: OfferType = productKeys.length > 1 ? 'MIXED_BUNDLE' : 'BASE_PLAN'
+    const subtypes = offerSubtypesForType(nextOfferType)
     form.setFieldsValue({
-      productKey,
+      productKeys,
+      offerType: nextOfferType,
+      offerSubType: subtypes[0],
+      minLines: nextOfferType === 'BASE_PLAN' ? form.getFieldValue('minLines') ?? 1 : undefined,
+      maxLines: nextOfferType === 'BASE_PLAN' ? form.getFieldValue('maxLines') ?? 3 : undefined,
       priceComponents: [
         {
           ...defaultPriceComponent(),
-          amount: pickerItem?.basePrice ?? product?.basePrice,
+          amount: primary.basePrice ?? product?.basePrice,
         },
       ],
-      name: `${name} listing`,
-      code: offerCodeFromTitle(`${name} listing`),
-      displayName: name,
+      name: `${combinedName} listing`,
+      code: offerCodeFromTitle(`${combinedName} listing`),
+      displayName: combinedName,
       paymentModel: isMerchandise ? 'Prepaid' : 'Postpaid',
       paymentPolicy: isMerchandise ? 'Upfront Card' : 'Standard Postpaid',
     })
+    setSelectedOfferType(nextOfferType)
     setPricePanelsActive(['price-panel-0'])
   }
 
@@ -2433,9 +2514,13 @@ export function ProductListingsPage() {
 
   const saveListing = async () => {
     const values = await form.validateFields()
-    const product = initialProducts.find((item) => item.key === values.productKey)
-    const catalogProduct = initialCatalogRows.find((item) => item.key === values.productKey)
-    const pickerItem = pickerCatalog.find((item) => item.key === values.productKey)
+    const primaryKey = values.productKeys?.[0]
+    const product = initialProducts.find((item) => item.key === primaryKey)
+    const catalogProduct = initialCatalogRows.find((item) => item.key === primaryKey)
+    const pickerItem = pickerCatalog.find((item) => item.key === primaryKey)
+    const selectedNames = (values.productKeys ?? [])
+      .map((key) => resolveCatalogItemName(key))
+      .filter((name): name is string => !!name)
     const primaryAmount = primaryPriceAmount(values.priceComponents)
     setListings((current) => [
       ...current,
@@ -2450,7 +2535,9 @@ export function ProductListingsPage() {
           : pickerItem?.archetype === 'Add-on' || product?.archetype === 'Add-on'
             ? 'Add-on'
             : 'Base plan',
-        product: pickerItem?.name ?? product?.name ?? catalogProduct?.name ?? 'Unknown product',
+        product: selectedNames.length
+          ? selectedNames.join(', ')
+          : pickerItem?.name ?? product?.name ?? catalogProduct?.name ?? 'Unknown product',
         categories: [pickerItem?.category ?? catalogProduct?.category ?? 'Mobile Plans'],
         price: primaryAmount != null ? `$${Number(primaryAmount).toFixed(2)}/mo` : 'Not set',
         promotionCount: 0,
@@ -2514,14 +2601,14 @@ export function ProductListingsPage() {
           title={(
             <Space orientation="vertical" size={2}>
               <Typography.Title level={4} style={{ margin: 0 }}>Select product or bundle</Typography.Title>
-              <Typography.Text type="secondary">Choose the item this listing will sell</Typography.Text>
+              <Typography.Text type="secondary">Choose one or more items this listing will sell</Typography.Text>
             </Space>
           )}
           width={996}
           open={pickerOpen}
           onCancel={() => setPickerOpen(false)}
           okText="Done"
-          okButtonProps={{ disabled: !pickedProductKey }}
+          okButtonProps={{ disabled: !pickedProductKeys.length }}
           onOk={confirmProduct}
         >
           <Space orientation="vertical" size={16} className="full-width">
@@ -2541,7 +2628,6 @@ export function ProductListingsPage() {
               ]}
               onChange={(value) => {
                 setPickerMode(value === 'bundles' ? 'bundles' : 'any')
-                setPickedProductKey(undefined)
               }}
             />
             {pickerMode !== 'bundles' && (
@@ -2551,7 +2637,6 @@ export function ProductListingsPage() {
                   value={pickerMode}
                   onChange={(value) => {
                     setPickerMode(value)
-                    setPickedProductKey(undefined)
                   }}
                   options={[
                     { label: 'All product types', value: 'any' },
@@ -2564,25 +2649,34 @@ export function ProductListingsPage() {
               </Space>
             )}
             <div className="listing-item-list">
-              {(pickerMode === 'bundles' ? eligiblePickerBundles : eligiblePickerProducts).map((item) => (
-                <button
-                  className={`listing-item-option ${pickedProductKey === item.key ? 'is-selected' : ''}`}
-                  key={item.key}
-                  onClick={() => setPickedProductKey(item.key)}
-                  type="button"
-                >
-                  <Radio checked={pickedProductKey === item.key} />
-                  <div className="listing-item-copy">
-                    <Typography.Text strong>{item.name}</Typography.Text>
-                    <Typography.Text type="secondary">{item.category}</Typography.Text>
-                  </div>
-                  <Space>
-                    <Tag color={item.kind === 'bundle' ? 'magenta' : item.classification === 'Telco' ? 'blue' : 'purple'}>
-                      {item.kind === 'bundle' ? 'Bundle' : item.classification}
-                    </Tag>
-                  </Space>
-                </button>
-              ))}
+              {(pickerMode === 'bundles' ? eligiblePickerBundles : eligiblePickerProducts).map((item) => {
+                const checked = pickedProductKeys.includes(item.key)
+                return (
+                  <button
+                    className={`listing-item-option ${checked ? 'is-selected' : ''}`}
+                    key={item.key}
+                    onClick={() => {
+                      setPickedProductKeys((current) => (
+                        current.includes(item.key)
+                          ? current.filter((key) => key !== item.key)
+                          : [...current, item.key]
+                      ))
+                    }}
+                    type="button"
+                  >
+                    <Checkbox checked={checked} />
+                    <div className="listing-item-copy">
+                      <Typography.Text strong>{item.name}</Typography.Text>
+                      <Typography.Text type="secondary">{item.category}</Typography.Text>
+                    </div>
+                    <Space>
+                      <Tag color={item.kind === 'bundle' ? 'magenta' : item.classification === 'Telco' ? 'blue' : 'purple'}>
+                        {item.kind === 'bundle' ? 'Bundle' : item.classification}
+                      </Tag>
+                    </Space>
+                  </button>
+                )
+              })}
             </div>
           </Space>
         </Modal>
@@ -2633,22 +2727,11 @@ export function ProductListingsPage() {
                   <div className="form-grid">
                     <div className="span-two">
                       <Form.Item
-                        name="productKey"
-                        label="Product or bundle"
-                        rules={[{ required: true, message: 'Select a product or bundle' }]}
+                        name="productKeys"
+                        label="Selected products"
+                        rules={[{ required: true, type: 'array', min: 1, message: 'Select at least one product or bundle' }]}
                       >
-                        <Select
-                          placeholder="Select a configured product"
-                          showSearch
-                          optionFilterProp="label"
-                          options={[
-                            ...pickerCatalog.map((item) => ({
-                              value: item.key,
-                              label: `${item.name} · ${item.kind === 'bundle' ? 'Bundle' : item.classification}`,
-                            })),
-                          ]}
-                          onChange={selectProduct}
-                        />
+                        <SelectedProductsList />
                       </Form.Item>
                     </div>
                     <Form.Item name="name" label="Offer title" rules={[{ required: true, message: 'Enter an offer title' }]}>
@@ -2912,12 +2995,16 @@ export function ProductListingsPage() {
                     <Typography.Text type="secondary">{review.code || 'No code'}</Typography.Text>
                   </div>
                   <div className="review-item">
-                    <Typography.Text type="secondary">Product</Typography.Text>
+                    <Typography.Text type="secondary">
+                      {selectedPickerItems.length > 1 ? 'Products' : 'Product'}
+                    </Typography.Text>
                     <Typography.Text strong>{selectedItemName || 'Not selected'}</Typography.Text>
                     <Typography.Text type="secondary">
-                      {selectedPickerItem?.kind === 'bundle'
-                        ? 'Bundle'
-                        : selectedPickerItem?.archetype ?? selectedPickerItem?.classification ?? selectedProduct?.archetype ?? selectedCatalogProduct?.typeLabel}
+                      {selectedPickerItems.length > 1
+                        ? `${selectedPickerItems.length} items selected`
+                        : selectedPickerItem?.kind === 'bundle'
+                          ? 'Bundle'
+                          : selectedPickerItem?.archetype ?? selectedPickerItem?.classification ?? selectedProduct?.archetype ?? selectedCatalogProduct?.typeLabel}
                     </Typography.Text>
                   </div>
                   <div className="review-item">
