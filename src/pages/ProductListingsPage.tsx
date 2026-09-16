@@ -2087,21 +2087,10 @@ type PickerCatalogItem = {
 // The same CCI catalog examples used by the main app. Keeping these real
 // examples in the handoff makes the picker and the downstream form demonstrable.
 const pickerCatalog: PickerCatalogItem[] = [
-  { key: 'cci-connect', name: 'Connect', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 14.95, archetype: 'Base plan' },
-  { key: 'cci-connect-plus', name: 'Connect+', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 19.95, archetype: 'Base plan' },
-  { key: 'cci-minimalist', name: 'Minimalist', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 20, archetype: 'Base plan' },
-  { key: 'cci-sometimes-on', name: 'Sometimes-on', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 25, archetype: 'Base plan' },
-  { key: 'cci-scroller', name: 'Scroller', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 35, archetype: 'Base plan' },
-  { key: 'cci-streamer', name: 'Streamer', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 45, archetype: 'Base plan' },
-  { key: 'cci-unlimited-50', name: 'Unlimited 50+', kind: 'product', classification: 'Telco', category: 'Senior plans', basePrice: 35, archetype: 'Base plan' },
+  { key: 'cci-connect', name: 'CCI Base Plan', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 14.95, archetype: 'Base plan' },
   { key: 'cci-unlimited-18-49', name: 'Unlimited 18-49', kind: 'product', classification: 'Telco', category: 'Mobile plans', basePrice: 60, archetype: 'Base plan' },
-  { key: 'cci-unlimited-aarp', name: 'Unlimited for AARP (2+ lines)', kind: 'product', classification: 'Telco', category: 'Senior plans', basePrice: 55, archetype: 'Base plan' },
-  { key: 'cci-pers-iris-ally', name: 'PERS — Iris Ally', kind: 'product', classification: 'Telco', category: 'Senior plans', basePrice: 25, archetype: 'Base plan' },
-  { key: 'cci-byod-ipad', name: 'BYOD — iPad', kind: 'product', classification: 'Telco', category: 'Devices', basePrice: 15, archetype: 'Add-on' },
   { key: 'cci-home-protection', name: 'Home Internet Protection', kind: 'product', classification: 'Telco', category: 'Protection', basePrice: 8, archetype: 'Add-on' },
   { key: 'cci-roadside', name: 'Roadside Assistance', kind: 'product', classification: 'Telco', category: 'Protection', basePrice: 5, archetype: 'Add-on' },
-  { key: 'cci-iris-device', name: 'Iris Ally PERS Device', kind: 'product', classification: 'Merchandise', category: 'Devices', basePrice: 99 },
-  { key: 'cci-bundle-unlimited-iris', name: 'Unlimited 50+ with Iris Ally', kind: 'bundle', classification: 'Telco + Merchandise', category: 'Senior plans' },
   { key: 'cci-bundle-scroller-roaming', name: 'Scroller + Roaming', kind: 'bundle', classification: 'Telco', category: 'Roaming' },
 ]
 
