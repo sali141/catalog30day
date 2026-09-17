@@ -2077,7 +2077,7 @@ function EntitlementServiceFields({
 type PickerCatalogItem = {
   key: string
   name: string
-  kind: 'product' | 'bundle'
+  kind: 'product' | 'bundle' | 'offer'
   classification: 'Telco' | 'Merchandise' | 'Telco + Merchandise'
   category: string
   basePrice?: number
@@ -2089,10 +2089,23 @@ type PickerCatalogItem = {
 const pickerCatalog: PickerCatalogItem[] = [
   { key: 'cci-connect', name: 'CCI Base Plan', kind: 'product', classification: 'Telco', category: 'Value plans', basePrice: 14.95, archetype: 'Base plan' },
   { key: 'cci-unlimited-18-49', name: 'Unlimited 18-49', kind: 'product', classification: 'Telco', category: 'Mobile plans', basePrice: 60, archetype: 'Base plan' },
-  { key: 'cci-home-protection', name: 'Home Internet Protection', kind: 'product', classification: 'Telco', category: 'Protection', basePrice: 8, archetype: 'Add-on' },
+  { key: 'cci-protection', name: 'Internet Protection', kind: 'product', classification: 'Telco', category: 'Protection', basePrice: 8, archetype: 'Add-on' },
   { key: 'cci-roadside', name: 'Roadside Assistance', kind: 'product', classification: 'Telco', category: 'Protection', basePrice: 5, archetype: 'Add-on' },
-  { key: 'cci-bundle-scroller-roaming', name: 'Scroller + Roaming', kind: 'bundle', classification: 'Telco', category: 'Roaming' },
+  { key: 'cci-offer-minimalist-1gb', name: 'Minimalist (1 GB)', kind: 'offer', classification: 'Telco', category: 'Value plans', basePrice: 20, archetype: 'Base plan' },
+  { key: 'cci-offer-scroller-10gb', name: 'Scroller (10 GB)', kind: 'offer', classification: 'Telco', category: 'Value plans', basePrice: 35, archetype: 'Base plan' },
+  { key: 'cci-offer-home-protection', name: 'Home Internet Protection', kind: 'offer', classification: 'Telco', category: 'Protection', basePrice: 8, archetype: 'Add-on' },
 ]
+
+function pickerItemTone(item: PickerCatalogItem): 'bundle' | 'merchandise' | 'telco' {
+  if (item.kind === 'bundle') return 'bundle'
+  if (item.classification === 'Merchandise') return 'merchandise'
+  return 'telco'
+}
+
+function pickerItemTagLabel(item: PickerCatalogItem): string {
+  if (item.kind === 'bundle') return 'Bundle'
+  return item.classification
+}
 
 function resolveCatalogItemName(productKey?: string): string | undefined {
   if (!productKey) return undefined
@@ -2118,17 +2131,13 @@ function SelectedProductsList({
     .filter((item): item is PickerCatalogItem => !!item)
 
   if (!items.length) {
-    return <Typography.Text type="secondary">No products or bundles selected</Typography.Text>
+    return <Typography.Text type="secondary">No offers selected</Typography.Text>
   }
 
   return (
     <div className="selected-products-list">
       {items.map((item) => {
-        const tone = item.kind === 'bundle'
-          ? 'bundle'
-          : item.classification === 'Merchandise'
-            ? 'merchandise'
-            : 'telco'
+        const tone = pickerItemTone(item)
 
         return (
           <div key={item.key} className={`selected-product-row is-${tone}`}>
@@ -2137,7 +2146,7 @@ function SelectedProductsList({
               <Typography.Text type="secondary">{item.category}</Typography.Text>
             </div>
             <Tag color={tone === 'bundle' ? 'magenta' : tone === 'telco' ? 'blue' : 'purple'}>
-              {item.kind === 'bundle' ? 'Bundle' : item.classification}
+              {pickerItemTagLabel(item)}
             </Tag>
             <Button
               type="text"
@@ -2260,7 +2269,7 @@ export function ProductListingsPage() {
   )), [pickerMode, pickerSearch])
 
   const eligiblePickerBundles = useMemo(() => pickerCatalog.filter((item) => (
-    item.kind === 'bundle'
+    item.kind === 'offer'
     && `${item.name} ${item.category}`.toLowerCase().includes(pickerSearch.toLowerCase())
   )), [pickerSearch])
 
@@ -2411,6 +2420,16 @@ export function ProductListingsPage() {
     const isMerchandise = pickerItems.every((item) => item.classification === 'Merchandise')
     const nextOfferType: OfferType = productKeys.length > 1 ? 'MIXED_BUNDLE' : 'BASE_PLAN'
     const subtypes = offerSubtypesForType(nextOfferType)
+    const priceComponents = pickerItems.length > 1
+      ? pickerItems.map((item) => ({
+          ...defaultPriceComponent(),
+          componentLabel: item.name,
+          amount: item.basePrice,
+        }))
+      : [{
+          ...defaultPriceComponent(),
+          amount: primary.basePrice ?? product?.basePrice,
+        }]
     form.setFieldsValue({
       productKeys,
       offerType: nextOfferType,
@@ -2421,12 +2440,7 @@ export function ProductListingsPage() {
         pickerItems.map((item) => ({ key: item.key, category: item.category })),
         form.getFieldValue('entitlements') as Record<string, Record<EntitlementServiceType, ServiceEntitlement>> | undefined,
       ),
-      priceComponents: [
-        {
-          ...defaultPriceComponent(),
-          amount: primary.basePrice ?? product?.basePrice,
-        },
-      ],
+      priceComponents,
       name: `${combinedName} listing`,
       code: offerCodeFromTitle(`${combinedName} listing`),
       displayName: combinedName,
@@ -2434,7 +2448,7 @@ export function ProductListingsPage() {
       paymentPolicy: isMerchandise ? 'Upfront Card' : 'Standard Postpaid',
     })
     setSelectedOfferType(nextOfferType)
-    setPricePanelsActive(['price-panel-0'])
+    setPricePanelsActive(priceComponents.map((_, index) => `price-panel-${index}`))
   }
 
   const nextStep = async () => {
@@ -2539,8 +2553,8 @@ export function ProductListingsPage() {
           className="listing-item-picker-modal"
           title={(
             <Space orientation="vertical" size={2}>
-              <Typography.Title level={4} style={{ margin: 0 }}>Select product or bundle</Typography.Title>
-              <Typography.Text type="secondary">Choose one or more items this listing will sell</Typography.Text>
+              <Typography.Title level={4} style={{ margin: 0 }}>Create Offer</Typography.Title>
+              <Typography.Text type="secondary">Choose a standalone offer or select offers to bundle</Typography.Text>
             </Space>
           )}
           width={996}
@@ -2554,7 +2568,7 @@ export function ProductListingsPage() {
             <Input
               allowClear
               prefix={<SearchOutlined />}
-              placeholder="Search products or bundles..."
+              placeholder="Search offers..."
               value={pickerSearch}
               onChange={(event) => setPickerSearch(event.target.value)}
             />
@@ -2562,10 +2576,11 @@ export function ProductListingsPage() {
               activeKey={pickerMode === 'bundles' ? 'bundles' : 'products'}
               className="listing-item-tabs"
               items={[
-                { key: 'products', label: 'Products' },
-                { key: 'bundles', label: 'Bundles' },
+                { key: 'products', label: 'Standalone Offer' },
+                { key: 'bundles', label: 'Bundle Offer' },
               ]}
               onChange={(value) => {
+                setPickedProductKeys([])
                 setPickerMode(value === 'bundles' ? 'bundles' : 'any')
               }}
             />
@@ -2590,27 +2605,36 @@ export function ProductListingsPage() {
             <div className="listing-item-list">
               {(pickerMode === 'bundles' ? eligiblePickerBundles : eligiblePickerProducts).map((item) => {
                 const checked = pickedProductKeys.includes(item.key)
+                const isBundleOfferTab = pickerMode === 'bundles'
                 return (
                   <button
                     className={`listing-item-option ${checked ? 'is-selected' : ''}`}
                     key={item.key}
                     onClick={() => {
-                      setPickedProductKeys((current) => (
-                        current.includes(item.key)
-                          ? current.filter((key) => key !== item.key)
-                          : [...current, item.key]
-                      ))
+                      if (isBundleOfferTab) {
+                        setPickedProductKeys((current) => (
+                          current.includes(item.key)
+                            ? current.filter((key) => key !== item.key)
+                            : [...current, item.key]
+                        ))
+                        return
+                      }
+                      setPickedProductKeys([item.key])
                     }}
                     type="button"
                   >
-                    <Checkbox checked={checked} />
+                    {isBundleOfferTab ? (
+                      <Checkbox checked={checked} />
+                    ) : (
+                      <Radio checked={checked} />
+                    )}
                     <div className="listing-item-copy">
                       <Typography.Text strong>{item.name}</Typography.Text>
                       <Typography.Text type="secondary">{item.category}</Typography.Text>
                     </div>
                     <Space>
-                      <Tag color={item.kind === 'bundle' ? 'magenta' : item.classification === 'Telco' ? 'blue' : 'purple'}>
-                        {item.kind === 'bundle' ? 'Bundle' : item.classification}
+                      <Tag color={pickerItemTone(item) === 'bundle' ? 'magenta' : pickerItemTone(item) === 'telco' ? 'blue' : 'purple'}>
+                        {pickerItemTagLabel(item)}
                       </Tag>
                     </Space>
                   </button>
@@ -2753,13 +2777,26 @@ export function ProductListingsPage() {
                           const pricingType = form.getFieldValue(['priceComponents', field.name, 'pricingType']) as PricingType | undefined
                           const feeDefinition = form.getFieldValue(['priceComponents', field.name, 'feeDefinition']) as FeeDefinition | undefined
                           const panelKey = `price-panel-${field.name}`
-                          const panelLabel = field.name === 0 ? (
+                          const linkedPickerItem = pricingType === 'Fee'
+                            ? undefined
+                            : componentLabel
+                              ? selectedPickerItems.find((item) => item.name === componentLabel)
+                              : selectedPickerItems[field.name] ?? selectedPickerItems[0]
+                          const panelTitle = componentLabel?.trim()
+                            || (field.name === 0 ? pricingProductName?.trim() : undefined)
+                            || priceComponentTitle(pricingType, feeDefinition)
+                          const panelTag = pricingType === 'Fee'
+                            ? 'Fee'
+                            : linkedPickerItem?.archetype
+                          const panelLabel = (
                             <Flex align="center" gap={8} wrap="wrap">
-                              <span>{pricingProductName?.trim() || 'Pricing component'}</span>
-                              <Tag color="blue">{offerTypeTitle(selectedOfferType)}</Tag>
+                              <span>{panelTitle}</span>
+                              {panelTag ? (
+                                <Tag color={panelTag === 'Add-on' ? 'purple' : panelTag === 'Fee' ? 'orange' : 'blue'}>
+                                  {panelTag}
+                                </Tag>
+                              ) : null}
                             </Flex>
-                          ) : (
-                            componentLabel || priceComponentTitle(pricingType, feeDefinition)
                           )
 
                           return (
@@ -2792,7 +2829,7 @@ export function ProductListingsPage() {
                                 children: (
                                   <PriceComponentFields
                                     field={field}
-                                    productName={pricingProductName}
+                                    productName={componentLabel?.trim() || pricingProductName}
                                     offerType={selectedOfferType}
                                     canRemove={false}
                                     onRemove={() => remove(field.name)}

@@ -1084,7 +1084,8 @@ body {
   border-color: var(--color-primary);
 }
 
-.listing-item-option .ant-checkbox-wrapper {
+.listing-item-option .ant-checkbox-wrapper,
+.listing-item-option .ant-radio-wrapper {
   pointer-events: none;
 }
 
