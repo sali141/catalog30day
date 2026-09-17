@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   AppstoreAddOutlined,
   ArrowLeftOutlined,
   BarsOutlined,
+  CloseOutlined,
   DeleteOutlined,
   HomeOutlined,
   InfoCircleOutlined,
   MoreOutlined,
   PlusOutlined,
   SearchOutlined,
+  UploadOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -158,7 +160,20 @@ type ListingFormValues = {
   subtitle?: string
   description?: string
   channels: string[]
+  productDetailsUrl?: string
+  termsAndConditionsUrl?: string
+  bannerImageUrl?: string
+  listingLabelEnabled?: boolean
+  listingLabel?: string
+  features: string[]
+  galleryImages: GalleryImage[]
   eligibility: EligibilityFormValues
+}
+
+type GalleryImage = {
+  uid: string
+  url: string
+  name: string
 }
 
 type LocationCompatibilityMode = 'allow' | 'exclude'
@@ -536,6 +551,119 @@ const JOURNEY_OPTIONS = [
 ]
 const LOCATION_SEARCH_BY_OPTIONS = ['Location ID', 'Name']
 const CHANNEL_SEARCH_BY_OPTIONS = ['Name', 'ID']
+
+const LISTING_LABEL_OPTIONS = [
+  { value: 'New', label: 'New' },
+  { value: 'Popular', label: 'Popular' },
+  { value: 'Limited', label: 'Limited' },
+  { value: 'Featured', label: 'Featured' },
+  { value: 'Best value', label: 'Best value' },
+]
+
+function defaultFeatures(): string[] {
+  return []
+}
+
+function ProductGalleryField({
+  value = [],
+  onChange,
+}: {
+  value?: GalleryImage[]
+  onChange?: (value: GalleryImage[]) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dragIndexRef = useRef<number | null>(null)
+
+  const addFiles = (files: FileList | null) => {
+    if (!files?.length) return
+    const next = Array.from(files)
+      .filter((file) => file.type.startsWith('image/'))
+      .map((file) => ({
+        uid: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        url: URL.createObjectURL(file),
+        name: file.name,
+      }))
+    if (!next.length) return
+    onChange?.([...value, ...next])
+  }
+
+  const removeAt = (index: number) => {
+    const target = value[index]
+    if (target?.url.startsWith('blob:')) {
+      URL.revokeObjectURL(target.url)
+    }
+    onChange?.(value.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const moveItem = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= value.length || to >= value.length) return
+    const next = [...value]
+    const [item] = next.splice(from, 1)
+    next.splice(to, 0, item)
+    onChange?.(next)
+  }
+
+  return (
+    <div className="product-gallery">
+      {value.length > 0 ? (
+        <div className="product-gallery-grid">
+          {value.map((image, index) => (
+            <div
+              key={image.uid}
+              className="product-gallery-item"
+              draggable
+              onDragStart={() => {
+                dragIndexRef.current = index
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                const from = dragIndexRef.current
+                dragIndexRef.current = null
+                if (from == null) return
+                moveItem(from, index)
+              }}
+            >
+              <img src={image.url} alt={image.name} />
+              <button
+                type="button"
+                className="product-gallery-remove"
+                aria-label={`Remove ${image.name}`}
+                onClick={() => removeAt(index)}
+              >
+                <CloseOutlined />
+              </button>
+              {index === 0 ? <span className="product-gallery-primary">Primary</span> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <Typography.Text type="secondary" className="product-gallery-hint">
+        Drag images to reorder. First image is automatically set as primary.
+      </Typography.Text>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(event) => {
+          addFiles(event.target.files)
+          event.target.value = ''
+        }}
+      />
+      <Button
+        className="product-gallery-add"
+        icon={<UploadOutlined />}
+        onClick={() => inputRef.current?.click()}
+      >
+        Add Images
+      </Button>
+    </div>
+  )
+}
 
 function defaultEligibility(): EligibilityFormValues {
   return {
@@ -2209,6 +2337,7 @@ export function ProductListingsPage() {
   const watchedMaxLines = Form.useWatch('maxLines', { form, preserve: true })
   const watchedOfferType = Form.useWatch('offerType', { form, preserve: true })
   const displayName = Form.useWatch('displayName', { form, preserve: true })
+  const listingLabelEnabled = Form.useWatch('listingLabelEnabled', { form, preserve: true })
   const offerType = watchedOfferType ?? selectedOfferType
   const primaryProductKey = selectedProductKeys?.[0]
   const selectedProduct = initialProducts.find((product) => product.key === primaryProductKey)
@@ -2389,6 +2518,13 @@ export function ProductListingsPage() {
       ],
       entitlements: {},
       channels: ['Web', 'Retail'],
+      productDetailsUrl: undefined,
+      termsAndConditionsUrl: undefined,
+      bannerImageUrl: undefined,
+      listingLabelEnabled: false,
+      listingLabel: undefined,
+      features: defaultFeatures(),
+      galleryImages: [],
       eligibility: defaultEligibility(),
     })
     setPickedProductKeys([])
@@ -2940,23 +3076,89 @@ export function ProductListingsPage() {
             )}
 
             {step === 4 && (
-              <Card
-                className="form-card"
-                title={<SectionTitle title="Display" description="Write the customer-facing content for this offer." />}
-              >
-                <Form.Item name="displayName" label="Display name" rules={[{ required: true }]}>
-                  <Input placeholder="e.g. Minimalist" />
-                </Form.Item>
-                <Form.Item name="subtitle" label="Short description">
-                  <Input placeholder="A concise value statement" maxLength={100} showCount />
-                </Form.Item>
-                <Form.Item name="description" label="Description">
-                  <Input.TextArea rows={5} maxLength={500} showCount />
-                </Form.Item>
-                <Form.Item name="channels" label="Sales channels" rules={[{ required: true }]}>
-                  <Checkbox.Group options={['Web', 'Retail', 'Contact centre']} />
-                </Form.Item>
-              </Card>
+              <>
+                <Card
+                  className="form-card"
+                  title={<SectionTitle title="Display" description="Write the customer-facing content for this offer." />}
+                >
+                  <Form.Item name="displayName" label="Display name" rules={[{ required: true }]}>
+                    <Input placeholder="e.g. Minimalist" />
+                  </Form.Item>
+                  <Form.Item name="subtitle" label="Short description">
+                    <Input placeholder="A concise value statement" maxLength={100} showCount />
+                  </Form.Item>
+                  <Form.Item name="description" label="Description">
+                    <Input.TextArea rows={5} maxLength={500} showCount />
+                  </Form.Item>
+                </Card>
+
+                <Card className="form-card" title="Links">
+                  <Form.Item name="productDetailsUrl" label="Product details">
+                    <Input placeholder="Add url" />
+                  </Form.Item>
+                  <Form.Item name="termsAndConditionsUrl" label="Terms and conditions">
+                    <Input placeholder="Add url" />
+                  </Form.Item>
+                  <Form.Item name="bannerImageUrl" label="Banner image">
+                    <Input placeholder="Add url" />
+                  </Form.Item>
+                  <Form.Item label="Listing label" className="listing-label-field">
+                    <Flex align="center" gap={12} className="listing-label-controls">
+                      <Form.Item name="listingLabelEnabled" valuePropName="checked" noStyle>
+                        <Switch />
+                      </Form.Item>
+                      <div className="listing-label-select-wrap">
+                        <Form.Item name="listingLabel" noStyle>
+                          <Select
+                            allowClear
+                            placeholder="Select"
+                            options={LISTING_LABEL_OPTIONS}
+                            disabled={!listingLabelEnabled}
+                            className="full-width"
+                          />
+                        </Form.Item>
+                      </div>
+                    </Flex>
+                  </Form.Item>
+                </Card>
+
+                <Card className="form-card" title="Features">
+                  <Form.List name="features">
+                    {(fields, { add, remove }) => (
+                      <div className="display-features-list">
+                        {fields.map((field) => (
+                          <div key={field.key} className="display-feature-row">
+                            <Form.Item name={field.name} className="display-feature-input">
+                              <Input placeholder="Add feature" />
+                            </Form.Item>
+                            <Button
+                              type="default"
+                              danger
+                              icon={<DeleteOutlined />}
+                              aria-label="Remove feature"
+                              onClick={() => remove(field.name)}
+                            />
+                          </div>
+                        ))}
+                        <Button
+                          type="dashed"
+                          icon={<PlusOutlined />}
+                          onClick={() => add('')}
+                          className="display-add-feature"
+                        >
+                          Add Feature
+                        </Button>
+                      </div>
+                    )}
+                  </Form.List>
+                </Card>
+
+                <Card className="form-card product-gallery-card" title="Product Gallery">
+                  <Form.Item name="galleryImages" noStyle>
+                    <ProductGalleryField />
+                  </Form.Item>
+                </Card>
+              </>
             )}
 
             {step === 5 && (
