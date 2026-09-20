@@ -54,7 +54,7 @@ type PaymentPolicy = 'Standard Postpaid' | 'Upfront Card'
 type ChargingPolicy = 'Real-Time Policy' | 'Advance Policy' | 'Arrears Policy'
 type BillingPolicyOption = 'Bill Cycle Policy'
 type ProrationPolicy = 'Daily Proration Policy'
-type PricingType = 'Reccuring' | 'Fee'
+type PricingType = 'RECURRING' | 'ONE TIME' | 'INSTALLMENT'
 type FeeDefinition =
   | 'Network Activation Fee'
   | 'Late Payment Fee'
@@ -65,10 +65,10 @@ type FeeDefinition =
   | 'Opt-Out Fee (disable AutoPay)'
   | 'Regulatory Fee'
   | 'USF Cellular'
-type PricingBasis = 'Flat' | 'Per Tier'
-type PricingUnit = 'Per Line' | 'Per Account'
+type PricingStructure = 'Flat' | 'Per Tier'
+type PricingBasis = 'FLAT' | 'PER LINE'
 type PricingFrequency = 'Monthly' | 'Annually' | 'On Activation'
-type TaxTreatment = 'Taxable' | 'Exempt' | 'Zero-related'
+type TaxTreatment = 'INCLUSIVE' | 'EXCLUSIVE'
 
 type TierDimension = 'Line Count'
 
@@ -127,8 +127,8 @@ type PriceComponent = {
   componentLabel?: string
   glCode: string
   taxTreatment: TaxTreatment
-  pricingBasis: PricingBasis
-  pricingUnit?: PricingUnit
+  pricingStructure: PricingStructure
+  pricingBasis?: PricingBasis
   frequency?: PricingFrequency
   taxId: string
   revenueAllocationMode?: RevenueAllocationMode
@@ -334,7 +334,7 @@ function OfferTypePicker({
   )
 }
 
-const PRICING_TYPE_OPTIONS: PricingType[] = ['Reccuring', 'Fee']
+const PRICING_TYPE_OPTIONS: PricingType[] = ['RECURRING', 'ONE TIME', 'INSTALLMENT']
 const FEE_DEFINITION_OPTIONS: FeeDefinition[] = [
   'Network Activation Fee',
   'Late Payment Fee',
@@ -352,7 +352,7 @@ type FeeCatalogOption = {
   priceLabel: string
   category: string
   amount?: number
-  pricingUnit?: PricingUnit
+  pricingUnit?: PricingBasis
   formula?: boolean
 }
 const FEE_CATALOG_OPTIONS: FeeCatalogOption[] = [
@@ -362,7 +362,7 @@ const FEE_CATALOG_OPTIONS: FeeCatalogOption[] = [
     priceLabel: '$10.00/ line',
     category: 'ACTIVATION',
     amount: 10,
-    pricingUnit: 'Per Line',
+    pricingUnit: 'PER LINE',
   },
   {
     label: 'Late Payment Fee',
@@ -417,7 +417,7 @@ const FEE_CATALOG_OPTIONS: FeeCatalogOption[] = [
 type PricingCatalogOption = {
   label: string
   priceLabel: string
-  pricingUnit: PricingUnit
+  pricingUnit: PricingBasis
   category: string
   amount: number
   frequency: PricingFrequency
@@ -426,7 +426,7 @@ const PRICING_CATALOG_OPTIONS: PricingCatalogOption[] = [
   {
     label: 'Additional Line',
     priceLabel: '$15.00',
-    pricingUnit: 'Per Line',
+    pricingUnit: 'PER LINE',
     category: 'MONTHLY',
     amount: 15,
     frequency: 'Monthly',
@@ -434,15 +434,15 @@ const PRICING_CATALOG_OPTIONS: PricingCatalogOption[] = [
   {
     label: 'Home Protection',
     priceLabel: '$5.00',
-    pricingUnit: 'Per Account',
+    pricingUnit: 'FLAT',
     category: 'MONTHLY',
     amount: 5,
     frequency: 'Monthly',
   },
 ]
-const TAX_TREATMENT_OPTIONS: TaxTreatment[] = ['Taxable', 'Exempt', 'Zero-related']
-const PRICING_BASIS_OPTIONS: PricingBasis[] = ['Flat', 'Per Tier']
-const PRICING_UNIT_OPTIONS: PricingUnit[] = ['Per Line', 'Per Account']
+const TAX_TREATMENT_OPTIONS: TaxTreatment[] = ['INCLUSIVE', 'EXCLUSIVE']
+const PRICING_STRUCTURE_OPTIONS: PricingStructure[] = ['Flat', 'Per Tier']
+const PRICING_BASIS_OPTIONS: PricingBasis[] = ['FLAT', 'PER LINE']
 const FREQUENCY_OPTIONS: PricingFrequency[] = ['Monthly', 'Annually', 'On Activation']
 const ENTITLEMENT_SERVICE_TYPES: EntitlementServiceType[] = ['Data', 'Voice', 'SMS']
 const MOBILE_PLAN_CATEGORIES = ['Value plans', 'Mobile plans', 'Senior plans']
@@ -822,7 +822,7 @@ function buildServicePricingSplits(
     amount: dividedAmount,
     glCode: existing?.[index]?.glCode ?? '',
     taxId: existing?.[index]?.taxId ?? '',
-    taxTreatment: existing?.[index]?.taxTreatment ?? 'Taxable',
+    taxTreatment: existing?.[index]?.taxTreatment ?? 'INCLUSIVE',
     amountManuallySet: false,
     percentage: undefined,
   }))
@@ -841,7 +841,7 @@ function buildPercentageRevenueSplits(
       amount: mainAmount != null ? amountFromPercentage(mainAmount, percentage) : undefined,
       glCode: existingSplit?.glCode ?? '',
       taxId: existingSplit?.taxId ?? '',
-      taxTreatment: existingSplit?.taxTreatment ?? 'Taxable',
+      taxTreatment: existingSplit?.taxTreatment ?? 'INCLUSIVE',
       amountManuallySet: false,
     }
   })
@@ -946,7 +946,7 @@ function defaultServicePricingSplit(serviceType: ServiceSplitType, mainAmount?: 
     amount: mainAmount != null ? dividedRevenueAllocationAmount(mainAmount) : undefined,
     glCode: '',
     taxId: '',
-    taxTreatment: 'Taxable',
+    taxTreatment: 'INCLUSIVE',
   }
 }
 
@@ -956,11 +956,11 @@ function defaultPriceTier(): PriceTier {
 
 function defaultPriceComponent(): PriceComponent {
   return {
-    pricingType: 'Reccuring',
+    pricingType: 'RECURRING',
     glCode: '',
-    taxTreatment: 'Taxable',
-    pricingBasis: 'Flat',
-    pricingUnit: 'Per Line',
+    taxTreatment: 'INCLUSIVE',
+    pricingStructure: 'Flat',
+    pricingBasis: 'PER LINE',
     frequency: 'Monthly',
     taxId: '',
     revenueAllocationMode: 'Mobile (100%)',
@@ -974,10 +974,10 @@ function defaultPriceComponent(): PriceComponent {
 function priceComponentFromPricingCatalog(option: PricingCatalogOption): PriceComponent {
   return {
     ...defaultPriceComponent(),
-    pricingType: 'Reccuring',
+    pricingType: 'RECURRING',
     componentLabel: option.label,
     amount: option.amount,
-    pricingUnit: option.pricingUnit,
+    pricingBasis: option.pricingUnit,
     frequency: option.frequency,
   }
 }
@@ -985,11 +985,11 @@ function priceComponentFromPricingCatalog(option: PricingCatalogOption): PriceCo
 function priceComponentFromFeeCatalog(option: FeeCatalogOption): PriceComponent {
   return {
     ...defaultPriceComponent(),
-    pricingType: 'Fee',
+    pricingType: 'ONE TIME',
     componentLabel: option.label,
     feeDefinition: option.label,
     amount: option.amount,
-    pricingUnit: option.pricingUnit ?? 'Per Line',
+    pricingBasis: option.pricingUnit ?? 'PER LINE',
     frequency: 'On Activation',
   }
 }
@@ -998,14 +998,14 @@ function priceComponentTitle(
   pricingType?: PricingType,
   feeDefinition?: FeeDefinition,
 ): string {
-  if (pricingType === 'Fee') return feeDefinition ?? 'One Time'
+  if (feeDefinition) return feeDefinition
   return pricingType ?? 'Pricing component'
 }
 
 function primaryPriceAmount(components: PriceComponent[] | undefined): number | undefined {
   const first = components?.[0]
   if (!first) return undefined
-  if (first.pricingBasis === 'Per Tier') return first.tiers?.[0]?.amount
+  if (first.pricingStructure === 'Per Tier') return first.tiers?.[0]?.amount
   return first.amount
 }
 
@@ -1029,8 +1029,8 @@ function PriceComponentFields({
   const form = Form.useFormInstance<ListingFormValues>()
   const pricingType = Form.useWatch(['priceComponents', field.name, 'pricingType'], form)
   const feeDefinition = Form.useWatch(['priceComponents', field.name, 'feeDefinition'], form)
-  const pricingBasis = Form.useWatch(['priceComponents', field.name, 'pricingBasis'], form) ?? 'Flat'
-  const isFlatPricing = pricingBasis === 'Flat'
+  const pricingStructure = Form.useWatch(['priceComponents', field.name, 'pricingStructure'], form) ?? 'Flat'
+  const isFlatPricing = pricingStructure === 'Flat'
   const offerTypeLabel = offerTypeTitle(offerType)
   const productKeys = Form.useWatch('productKeys', { form, preserve: true }) as string[] | undefined
   const displayName = Form.useWatch('displayName', { form, preserve: true })
@@ -1188,7 +1188,7 @@ function PriceComponentFields({
         <Form.Item name={[field.name, 'componentLabel']} hidden>
           <Input />
         </Form.Item>
-        <Form.Item name={[field.name, 'pricingBasis']} hidden initialValue="Flat">
+        <Form.Item name={[field.name, 'pricingStructure']} hidden initialValue="Flat">
           <Input />
         </Form.Item>
         <div className="span-two pricing-charge-row">
@@ -1198,20 +1198,17 @@ function PriceComponentFields({
             rules={[{ required: true, message: 'Select a charge type' }]}
           >
             <Select
-              options={PRICING_TYPE_OPTIONS.map((value) => ({
-                value,
-                label: value === 'Fee' ? 'One Time' : value,
-              }))}
+              options={PRICING_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
               onChange={(value: PricingType) => {
-                if (value !== 'Fee') {
+                if (value !== 'ONE TIME') {
                   form.setFieldValue(['priceComponents', field.name, 'feeDefinition'], undefined)
                 }
-                if (value === 'Fee') {
+                if (value === 'ONE TIME') {
                   form.setFieldValue(['priceComponents', field.name, 'frequency'], 'On Activation')
                 } else if (form.getFieldValue(['priceComponents', field.name, 'frequency']) === 'On Activation') {
                   form.setFieldValue(['priceComponents', field.name, 'frequency'], 'Monthly')
                 }
-                if (value !== 'Reccuring') {
+                if (value !== 'RECURRING') {
                   form.setFieldValue(['priceComponents', field.name, 'revenueAllocationMode'], 'Mobile (100%)')
                 }
               }}
@@ -1227,20 +1224,35 @@ function PriceComponentFields({
                 <InputNumber min={0} precision={2} prefix="$" style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item
-                name={[field.name, 'pricingUnit']}
-                label="Pricing Unit"
-                rules={[{ required: true, message: 'Select a pricing unit' }]}
+                name={[field.name, 'pricingBasis']}
+                label="Pricing Basis"
+                rules={[{ required: true, message: 'Select a pricing basis' }]}
               >
-                <Select options={PRICING_UNIT_OPTIONS.map((value) => ({ value }))} />
+                <Select options={PRICING_BASIS_OPTIONS.map((value) => ({ value }))} />
               </Form.Item>
-              <Form.Item
-                name={[field.name, 'frequency']}
-                label="Frequency / Validity"
-                initialValue={pricingType === 'Fee' ? 'On Activation' : 'Monthly'}
-                rules={[{ required: true, message: 'Select a frequency / validity' }]}
-              >
-                <Select options={FREQUENCY_OPTIONS.map((value) => ({ value }))} />
-              </Form.Item>
+              {pricingType !== 'ONE TIME' ? (
+                <Form.Item
+                  name={[field.name, 'frequency']}
+                  label="Frequency"
+                  initialValue="Monthly"
+                  rules={[{ required: true, message: 'Select a frequency' }]}
+                >
+                  <Select options={FREQUENCY_OPTIONS.map((value) => ({ value }))} />
+                </Form.Item>
+              ) : (
+                <>
+                  <Form.Item name={[field.name, 'frequency']} hidden initialValue="On Activation">
+                    <Input />
+                  </Form.Item>
+                  <Form.Item
+                    name={[field.name, 'feeDefinition']}
+                    label="Associated Fee"
+                    rules={[{ required: true, message: 'Select an associated fee' }]}
+                  >
+                    <Select options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
+                  </Form.Item>
+                </>
+              )}
               <Form.Item
                 name={[field.name, 'taxTreatment']}
                 label="Tax Treatment"
@@ -1278,7 +1290,7 @@ function PriceComponentFields({
                         options={REVENUE_ALLOCATION_MODE_OPTIONS.map((value) => ({
                           value,
                           label: value,
-                          disabled: value === 'Split' && pricingType !== 'Reccuring',
+                          disabled: value === 'Split' && pricingType !== 'RECURRING',
                         }))}
                         onChange={(value: RevenueAllocationMode) => {
                           if (value === 'Split') syncRevenueAllocationSplits()
@@ -1445,15 +1457,6 @@ function PriceComponentFields({
             }]}
           />
         </div>
-        {pricingType === 'Fee' ? (
-          <Form.Item
-            name={[field.name, 'feeDefinition']}
-            label="Associated Fee"
-            rules={[{ required: true, message: 'Select an associated fee' }]}
-          >
-            <Select options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
-          </Form.Item>
-        ) : null}
         <div className="span-two">
           {!isFlatPricing ? (
             <div className="pricing-tiers-block">
@@ -2913,7 +2916,7 @@ export function ProductListingsPage() {
                           const pricingType = form.getFieldValue(['priceComponents', field.name, 'pricingType']) as PricingType | undefined
                           const feeDefinition = form.getFieldValue(['priceComponents', field.name, 'feeDefinition']) as FeeDefinition | undefined
                           const panelKey = `price-panel-${field.name}`
-                          const linkedPickerItem = pricingType === 'Fee'
+                          const linkedPickerItem = feeDefinition
                             ? undefined
                             : componentLabel
                               ? selectedPickerItems.find((item) => item.name === componentLabel)
@@ -2921,7 +2924,7 @@ export function ProductListingsPage() {
                           const panelTitle = componentLabel?.trim()
                             || (field.name === 0 ? pricingProductName?.trim() : undefined)
                             || priceComponentTitle(pricingType, feeDefinition)
-                          const panelTag = pricingType === 'Fee'
+                          const panelTag = feeDefinition
                             ? 'Fee'
                             : linkedPickerItem?.archetype
                           const panelLabel = (
