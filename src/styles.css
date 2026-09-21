@@ -490,6 +490,28 @@ body {
   margin-bottom: 8px;
 }
 
+.formula-expression-panel {
+  margin-top: 8px;
+}
+
+.formula-expression-panel .ant-collapse-header {
+  font-weight: var(--font-weight-medium);
+}
+
+.formula-expression-code {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+}
+
 .revenue-split-mode-field {
   max-width: 280px;
   margin-bottom: 16px;
@@ -1050,13 +1072,52 @@ body {
 }
 
 .listing-progress-panel .ant-card-body,
-.listing-sections-panel .ant-card-body {
+.listing-sections-panel .ant-card-body,
+.listing-price-summary-panel .ant-card-body {
   padding: var(--space-md);
 }
 
 .listing-progress-panel .ant-steps-item-title,
 .listing-progress-panel .ant-steps-item-description {
   font-size: var(--font-size-body);
+}
+
+.price-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.price-summary-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.price-summary-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.price-summary-meta {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.price-summary-divider {
+  margin: 4px 0;
+}
+
+.price-summary-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price-summary-row.is-total {
+  align-items: center;
 }
 
 .listing-section-link.ant-btn {

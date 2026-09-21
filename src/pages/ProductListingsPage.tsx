@@ -122,11 +122,11 @@ type ServicePricingSplit = {
 }
 
 type PriceComponent = {
-  pricingType: PricingType
+  pricingType?: PricingType
   feeDefinition?: FeeDefinition
   componentLabel?: string
   glCode: string
-  taxTreatment: TaxTreatment
+  taxTreatment?: TaxTreatment
   pricingStructure: PricingStructure
   pricingBasis?: PricingBasis
   frequency?: PricingFrequency
@@ -259,8 +259,15 @@ function offerTypeTitle(offerType?: OfferType): string {
   return card?.title ?? 'Base plan'
 }
 
-function offerCodeFromTitle(title: string): string {
-  return title.trim().toUpperCase().replace(/\s+/g, '_')
+function generateRandomOfferCodeSegment(length = 8): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const values = new Uint32Array(length)
+  crypto.getRandomValues(values)
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join('')
+}
+
+function generateOfferCode(): string {
+  return `CX-CAT-OFR-${generateRandomOfferCodeSegment(8)}`
 }
 
 function OfferTypePicker({
@@ -414,36 +421,26 @@ const FEE_CATALOG_OPTIONS: FeeCatalogOption[] = [
     formula: true,
   },
 ]
-type PricingCatalogOption = {
-  label: string
-  priceLabel: string
-  pricingUnit: PricingBasis
-  category: string
-  amount: number
-  frequency: PricingFrequency
-}
-const PRICING_CATALOG_OPTIONS: PricingCatalogOption[] = [
-  {
-    label: 'Additional Line',
-    priceLabel: '$15.00',
-    pricingUnit: 'PER LINE',
-    category: 'MONTHLY',
-    amount: 15,
-    frequency: 'Monthly',
-  },
-  {
-    label: 'Home Protection',
-    priceLabel: '$5.00',
-    pricingUnit: 'FLAT',
-    category: 'MONTHLY',
-    amount: 5,
-    frequency: 'Monthly',
-  },
-]
 const TAX_TREATMENT_OPTIONS: TaxTreatment[] = ['INCLUSIVE', 'EXCLUSIVE']
 const PRICING_STRUCTURE_OPTIONS: PricingStructure[] = ['Flat', 'Per Tier']
 const PRICING_BASIS_OPTIONS: PricingBasis[] = ['FLAT', 'PER LINE']
 const FREQUENCY_OPTIONS: PricingFrequency[] = ['Monthly', 'Annually', 'On Activation']
+const FEE_FORMULA_EXPRESSION = `{
+  "type": "OPERATOR",
+  "operator": "MULTIPLY",
+  "operands": [
+    {
+      "type": "OPERATOR",
+      "operator": "ADD",
+      "operands": [
+        { "type": "PRICE_COMPONENT_REF", "service_type_code": "LOCAL_VOICE" },
+        { "type": "FEE_REF", "fee_code": "COMPLIANCE_FEE_PHONE" }
+      ]
+    },
+    { "type": "RATE_REF", "rate_code": "TrafficStudyRate" },
+    { "type": "RATE_REF", "rate_code": "FedUSFRate" }
+  ]
+}`
 const ENTITLEMENT_SERVICE_TYPES: EntitlementServiceType[] = ['Data', 'Voice', 'SMS']
 const MOBILE_PLAN_CATEGORIES = ['Value plans', 'Mobile plans', 'Senior plans']
 const PROTECTION_CATEGORIES = ['Protection']
@@ -954,44 +951,60 @@ function defaultPriceTier(): PriceTier {
   return {}
 }
 
-function defaultPriceComponent(): PriceComponent {
+function emptyPriceComponent(overrides?: Partial<PriceComponent>): PriceComponent {
   return {
-    pricingType: 'RECURRING',
+    pricingType: undefined,
     glCode: '',
-    taxTreatment: 'INCLUSIVE',
+    taxTreatment: undefined,
     pricingStructure: 'Flat',
-    pricingBasis: 'PER LINE',
-    frequency: 'Monthly',
+    pricingBasis: undefined,
+    frequency: undefined,
     taxId: '',
+    feeDefinition: undefined,
+    amount: undefined,
     revenueAllocationMode: 'Mobile (100%)',
     revenueSplitMode: 'Equally',
     servicePricingSplits: SERVICE_SPLIT_SERVICE_TYPES.map((serviceType) => defaultServicePricingSplit(serviceType)),
     tierDimension: 'Line Count',
     tiers: [defaultPriceTier()],
+    ...overrides,
   }
 }
 
-function priceComponentFromPricingCatalog(option: PricingCatalogOption): PriceComponent {
+function derivedPriceComponentFromOffer(item?: PickerCatalogItem): PriceComponent {
   return {
-    ...defaultPriceComponent(),
+    ...emptyPriceComponent(),
     pricingType: 'RECURRING',
-    componentLabel: option.label,
-    amount: option.amount,
-    pricingBasis: option.pricingUnit,
-    frequency: option.frequency,
+    taxTreatment: 'INCLUSIVE',
+    pricingBasis: 'PER LINE',
+    frequency: 'Monthly',
+    amount: item?.basePrice,
   }
+}
+
+function defaultPriceComponent(): PriceComponent {
+  return emptyPriceComponent()
 }
 
 function priceComponentFromFeeCatalog(option: FeeCatalogOption): PriceComponent {
   return {
-    ...defaultPriceComponent(),
+    ...emptyPriceComponent(),
     pricingType: 'ONE TIME',
     componentLabel: option.label,
     feeDefinition: option.label,
     amount: option.amount,
     pricingBasis: option.pricingUnit ?? 'PER LINE',
+    taxTreatment: 'INCLUSIVE',
     frequency: 'On Activation',
   }
+}
+
+function derivedNetworkActivationFeeComponent(): PriceComponent {
+  const option = FEE_CATALOG_OPTIONS.find((item) => item.label === 'Network Activation Fee')
+  if (!option) {
+    return emptyPriceComponent({ componentLabel: 'Network Activation Fee' })
+  }
+  return priceComponentFromFeeCatalog(option)
 }
 
 function priceComponentTitle(
@@ -1007,6 +1020,36 @@ function primaryPriceAmount(components: PriceComponent[] | undefined): number | 
   if (!first) return undefined
   if (first.pricingStructure === 'Per Tier') return first.tiers?.[0]?.amount
   return first.amount
+}
+
+function priceComponentAmount(component?: PriceComponent): number | undefined {
+  if (!component) return undefined
+  if (component.pricingStructure === 'Per Tier') return component.tiers?.[0]?.amount
+  return component.amount != null ? Number(component.amount) : undefined
+}
+
+function priceComponentSummaryLabel(component: PriceComponent, index: number): string {
+  return component.componentLabel?.trim()
+    || component.feeDefinition
+    || component.pricingType
+    || `Pricing component ${index + 1}`
+}
+
+function formatPriceAmount(amount: number): string {
+  return `$${amount.toFixed(2)}`
+}
+
+function priceSummaryRows(components: PriceComponent[] | undefined) {
+  return (components ?? []).map((component, index) => {
+    const amount = priceComponentAmount(component)
+    return {
+      key: `${component.componentLabel ?? 'component'}-${index}`,
+      label: priceComponentSummaryLabel(component, index),
+      amount,
+      pricingType: component.pricingType,
+      frequency: component.frequency,
+    }
+  })
 }
 
 function PriceComponentFields({
@@ -1026,6 +1069,7 @@ function PriceComponentFields({
 }) {
   const { message } = App.useApp()
   const [revenueAllocationActive, setRevenueAllocationActive] = useState<string[]>(['revenue-allocation'])
+  const [formulaExpressionActive, setFormulaExpressionActive] = useState<string[]>(['formula-expression'])
   const form = Form.useFormInstance<ListingFormValues>()
   const pricingType = Form.useWatch(['priceComponents', field.name, 'pricingType'], form)
   const feeDefinition = Form.useWatch(['priceComponents', field.name, 'feeDefinition'], form)
@@ -1198,15 +1242,17 @@ function PriceComponentFields({
             rules={[{ required: true, message: 'Select a charge type' }]}
           >
             <Select
+              allowClear
+              placeholder="Select"
               options={PRICING_TYPE_OPTIONS.map((value) => ({ value, label: value }))}
-              onChange={(value: PricingType) => {
+              onChange={(value?: PricingType) => {
                 if (value !== 'ONE TIME') {
                   form.setFieldValue(['priceComponents', field.name, 'feeDefinition'], undefined)
                 }
                 if (value === 'ONE TIME') {
                   form.setFieldValue(['priceComponents', field.name, 'frequency'], 'On Activation')
                 } else if (form.getFieldValue(['priceComponents', field.name, 'frequency']) === 'On Activation') {
-                  form.setFieldValue(['priceComponents', field.name, 'frequency'], 'Monthly')
+                  form.setFieldValue(['priceComponents', field.name, 'frequency'], undefined)
                 }
                 if (value !== 'RECURRING') {
                   form.setFieldValue(['priceComponents', field.name, 'revenueAllocationMode'], 'Mobile (100%)')
@@ -1221,27 +1267,26 @@ function PriceComponentFields({
                 label="Price"
                 rules={priceOptional ? [] : [{ required: true, message: 'Enter a price' }]}
               >
-                <InputNumber min={0} precision={2} prefix="$" style={{ width: '100%' }} />
+                <InputNumber min={0} precision={2} prefix="$" style={{ width: '100%' }} placeholder="Enter price" />
               </Form.Item>
               <Form.Item
                 name={[field.name, 'pricingBasis']}
                 label="Pricing Basis"
                 rules={[{ required: true, message: 'Select a pricing basis' }]}
               >
-                <Select options={PRICING_BASIS_OPTIONS.map((value) => ({ value }))} />
+                <Select allowClear placeholder="Select" options={PRICING_BASIS_OPTIONS.map((value) => ({ value }))} />
               </Form.Item>
               {pricingType !== 'ONE TIME' ? (
                 <Form.Item
                   name={[field.name, 'frequency']}
                   label="Frequency"
-                  initialValue="Monthly"
                   rules={[{ required: true, message: 'Select a frequency' }]}
                 >
-                  <Select options={FREQUENCY_OPTIONS.map((value) => ({ value }))} />
+                  <Select allowClear placeholder="Select" options={FREQUENCY_OPTIONS.map((value) => ({ value }))} />
                 </Form.Item>
               ) : (
                 <>
-                  <Form.Item name={[field.name, 'frequency']} hidden initialValue="On Activation">
+                  <Form.Item name={[field.name, 'frequency']} hidden>
                     <Input />
                   </Form.Item>
                   <Form.Item
@@ -1249,7 +1294,7 @@ function PriceComponentFields({
                     label="Associated Fee"
                     rules={[{ required: true, message: 'Select an associated fee' }]}
                   >
-                    <Select options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
+                    <Select allowClear placeholder="Select" options={FEE_DEFINITION_OPTIONS.map((value) => ({ value }))} />
                   </Form.Item>
                 </>
               )}
@@ -1258,7 +1303,7 @@ function PriceComponentFields({
                 label="Tax Treatment"
                 rules={[{ required: true, message: 'Select a tax treatment' }]}
               >
-                <Select options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
+                <Select allowClear placeholder="Select" options={TAX_TREATMENT_OPTIONS.map((value) => ({ value }))} />
               </Form.Item>
             </>
           ) : null}
@@ -1457,6 +1502,23 @@ function PriceComponentFields({
             }]}
           />
         </div>
+        {pricingType === 'ONE TIME' ? (
+          <div className="span-two formula-expression-panel">
+            <Collapse
+              activeKey={formulaExpressionActive}
+              onChange={(keys) => {
+                setFormulaExpressionActive(Array.isArray(keys) ? keys.map(String) : [String(keys)])
+              }}
+              items={[{
+                key: 'formula-expression',
+                label: 'Formula Expression',
+                children: (
+                  <pre className="formula-expression-code">{FEE_FORMULA_EXPRESSION}</pre>
+                ),
+              }]}
+            />
+          </div>
+        ) : null}
         <div className="span-two">
           {!isFlatPricing ? (
             <div className="pricing-tiers-block">
@@ -2332,7 +2394,6 @@ export function ProductListingsPage() {
   const [selectedOfferType, setSelectedOfferType] = useState<OfferType>('BASE_PLAN')
   const [pricePanelsActive, setPricePanelsActive] = useState<string[]>(['price-panel-0'])
   const [feeCatalogOpen, setFeeCatalogOpen] = useState(false)
-  const [pricingCatalogOpen, setPricingCatalogOpen] = useState(false)
   const [form] = Form.useForm<ListingFormValues>()
 
   // preserve:true keeps values after step Form.Items unmount
@@ -2341,6 +2402,15 @@ export function ProductListingsPage() {
   const watchedOfferType = Form.useWatch('offerType', { form, preserve: true })
   const displayName = Form.useWatch('displayName', { form, preserve: true })
   const listingLabelEnabled = Form.useWatch('listingLabelEnabled', { form, preserve: true })
+  const watchedPriceComponents = Form.useWatch('priceComponents', { form, preserve: true }) as PriceComponent[] | undefined
+  const priceSummary = priceSummaryRows(watchedPriceComponents)
+  const recurringTotal = priceSummary
+    .filter((row) => row.pricingType !== 'ONE TIME' && row.amount != null)
+    .reduce((sum, row) => sum + Number(row.amount), 0)
+  const oneTimeTotal = priceSummary
+    .filter((row) => row.pricingType === 'ONE TIME' && row.amount != null)
+    .reduce((sum, row) => sum + Number(row.amount), 0)
+  const hasPriceSummaryAmounts = priceSummary.some((row) => row.amount != null)
   const offerType = watchedOfferType ?? selectedOfferType
   const primaryProductKey = selectedProductKeys?.[0]
   const selectedProduct = initialProducts.find((product) => product.key === primaryProductKey)
@@ -2559,16 +2629,16 @@ export function ProductListingsPage() {
     const isMerchandise = pickerItems.every((item) => item.classification === 'Merchandise')
     const nextOfferType: OfferType = productKeys.length > 1 ? 'MIXED_BUNDLE' : 'BASE_PLAN'
     const subtypes = offerSubtypesForType(nextOfferType)
-    const priceComponents = pickerItems.length > 1
+    const isBundleOffer = pickerItems.length > 1 || pickerItems.some((item) => item.kind === 'offer')
+    const offerPriceComponents = isBundleOffer
       ? pickerItems.map((item) => ({
-          ...defaultPriceComponent(),
+          ...derivedPriceComponentFromOffer(item),
           componentLabel: item.name,
-          amount: item.basePrice,
         }))
-      : [{
-          ...defaultPriceComponent(),
-          amount: primary.basePrice ?? product?.basePrice,
-        }]
+      : [emptyPriceComponent()]
+    const priceComponents = isBundleOffer
+      ? [...offerPriceComponents, derivedNetworkActivationFeeComponent()]
+      : offerPriceComponents
     form.setFieldsValue({
       productKeys,
       offerType: nextOfferType,
@@ -2581,7 +2651,7 @@ export function ProductListingsPage() {
       ),
       priceComponents,
       name: `${combinedName} listing`,
-      code: offerCodeFromTitle(`${combinedName} listing`),
+      code: generateOfferCode(),
       displayName: combinedName,
       paymentModel: isMerchandise ? 'Prepaid' : 'Postpaid',
       paymentPolicy: isMerchandise ? 'Upfront Card' : 'Standard Postpaid',
@@ -2837,15 +2907,10 @@ export function ProductListingsPage() {
                       </Form.Item>
                     </div>
                     <Form.Item name="name" label="Offer title" rules={[{ required: true, message: 'Enter an offer title' }]}>
-                      <Input
-                        placeholder="e.g. Minimalist monthly plan"
-                        onChange={(event) => {
-                          form.setFieldValue('code', offerCodeFromTitle(event.target.value))
-                        }}
-                      />
+                      <Input placeholder="e.g. Minimalist monthly plan" />
                     </Form.Item>
                     <Form.Item name="code" label="Offer Code">
-                      <Input readOnly placeholder="Auto-generated from offer title" />
+                      <Input readOnly placeholder="Auto-generated" />
                     </Form.Item>
                     <Form.Item name="sellable" label="Sellable" valuePropName="checked">
                       <Switch />
@@ -2924,7 +2989,7 @@ export function ProductListingsPage() {
                           const panelTitle = componentLabel?.trim()
                             || (field.name === 0 ? pricingProductName?.trim() : undefined)
                             || priceComponentTitle(pricingType, feeDefinition)
-                          const panelTag = feeDefinition
+                          const panelTag = feeDefinition || componentLabel === 'Network Activation Fee'
                             ? 'Fee'
                             : linkedPickerItem?.archetype
                           const panelLabel = (
@@ -2980,41 +3045,6 @@ export function ProductListingsPage() {
                           )
                         })}
                         <Flex gap={8} className="full-width pricing-add-actions">
-                          <Dropdown
-                            trigger={['click']}
-                            open={pricingCatalogOpen}
-                            onOpenChange={setPricingCatalogOpen}
-                            placement="bottomLeft"
-                            popupRender={() => (
-                              <div className="fee-catalog-menu">
-                                {PRICING_CATALOG_OPTIONS.map((option) => (
-                                  <button
-                                    key={option.label}
-                                    type="button"
-                                    className="fee-catalog-item"
-                                    onClick={() => {
-                                      const nextIndex = fields.length
-                                      add(priceComponentFromPricingCatalog(option))
-                                      setPricePanelsActive((current) => [...current, `price-panel-${nextIndex}`])
-                                      setPricingCatalogOpen(false)
-                                    }}
-                                  >
-                                    <PlusOutlined className="fee-catalog-item-icon" />
-                                    <span className="fee-catalog-item-copy">
-                                      <span className="fee-catalog-item-title">{option.label}</span>
-                                      <span className="fee-catalog-item-meta">
-                                        {option.priceLabel} / {option.pricingUnit} · {option.category}
-                                      </span>
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          >
-                            <Button type="dashed" icon={<PlusOutlined />} block>
-                              Add Pricing
-                            </Button>
-                          </Dropdown>
                           <Dropdown
                             trigger={['click']}
                             open={feeCatalogOpen}
@@ -3259,6 +3289,53 @@ export function ProductListingsPage() {
             <Card className="listing-progress-panel" title="Progress" size="small">
               <Steps current={step} orientation="vertical" items={stepItems.map(({ title }) => ({ title }))} />
             </Card>
+            {step === 1 ? (
+              <Card className="listing-price-summary-panel" title="Total price summary" size="small">
+                {priceSummary.length ? (
+                  <div className="price-summary-list">
+                    {priceSummary.map((row) => (
+                      <div key={row.key} className="price-summary-row">
+                        <div className="price-summary-copy">
+                          <Typography.Text>{row.label}</Typography.Text>
+                          <Typography.Text type="secondary" className="price-summary-meta">
+                            {row.pricingType ?? 'Not set'}
+                            {row.pricingType === 'ONE TIME'
+                              ? ' · One time'
+                              : row.frequency
+                                ? ` · ${row.frequency}`
+                                : ''}
+                          </Typography.Text>
+                        </div>
+                        <Typography.Text strong>
+                          {row.amount != null ? formatPriceAmount(Number(row.amount)) : '—'}
+                        </Typography.Text>
+                      </div>
+                    ))}
+                    <Divider className="price-summary-divider" />
+                    {hasPriceSummaryAmounts ? (
+                      <div className="price-summary-totals">
+                        {recurringTotal > 0 ? (
+                          <div className="price-summary-row is-total">
+                            <Typography.Text strong>Recurring total</Typography.Text>
+                            <Typography.Text strong>{formatPriceAmount(recurringTotal)}</Typography.Text>
+                          </div>
+                        ) : null}
+                        {oneTimeTotal > 0 ? (
+                          <div className="price-summary-row is-total">
+                            <Typography.Text strong>One-time total</Typography.Text>
+                            <Typography.Text strong>{formatPriceAmount(oneTimeTotal)}</Typography.Text>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <Typography.Text type="secondary">Enter pricing amounts to see totals.</Typography.Text>
+                    )}
+                  </div>
+                ) : (
+                  <Typography.Text type="secondary">No pricing components yet.</Typography.Text>
+                )}
+              </Card>
+            ) : null}
             {step === 0 ? (
               <Card className="listing-sections-panel" title="Listing sections" size="small">
                 {[
