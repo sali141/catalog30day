@@ -2982,6 +2982,7 @@ export function ProductListingsPage() {
   const reviewOneTimeTotal = reviewPriceRows
     .filter((row) => row.pricingType === 'ONE TIME' && row.amount != null)
     .reduce((sum, row) => sum + Number(row.amount), 0)
+  const reviewGrandTotal = reviewRecurringTotal + reviewOneTimeTotal
   const reviewEntitlements = entitlementReviewRows(review.entitlements, selectedPickerItems)
   const reviewEligibilityDetails = enabledEligibilityDetails(review.eligibility)
   const reviewFeatures = (review.features ?? []).map((feature) => feature.trim()).filter(Boolean)
@@ -3330,7 +3331,7 @@ export function ProductListingsPage() {
               >
                 <div className="review-sections">
                   <section className="review-section">
-                    <Typography.Title level={5}>1. Offer Details</Typography.Title>
+                    <Typography.Title level={5}>Offer Details</Typography.Title>
                     <div className="review-grid">
                       <div className="review-item">
                         <Typography.Text type="secondary">Offer title</Typography.Text>
@@ -3393,47 +3394,70 @@ export function ProductListingsPage() {
                   </section>
 
                   <section className="review-section">
-                    <Typography.Title level={5}>2. Pricing</Typography.Title>
+                    <Typography.Title level={5}>Pricing</Typography.Title>
                     {reviewPriceRows.length ? (
                       <div className="review-pricing-list">
                         {reviewPriceRows.map((row) => (
                           <div key={row.key} className="review-item review-pricing-item">
                             <div className="review-pricing-item-header">
-                              <Typography.Text strong>{row.label}</Typography.Text>
-                              <Typography.Text strong>
+                              <div>
+                                <Typography.Text strong>{row.label}</Typography.Text>
+                                <Typography.Text type="secondary" className="review-pricing-type">
+                                  {row.pricingType === 'ONE TIME' ? 'One time' : (row.frequency || row.pricingType || 'Pricing')}
+                                </Typography.Text>
+                              </div>
+                              <Typography.Text strong className="review-pricing-amount">
                                 {row.amount != null ? formatPriceAmount(Number(row.amount)) : '—'}
                               </Typography.Text>
                             </div>
                             <div className="review-field-list">
-                              <Typography.Text type="secondary">Pricing type: {reviewValue(row.pricingType)}</Typography.Text>
-                              <Typography.Text type="secondary">Pricing basis: {reviewValue(row.pricingBasis)}</Typography.Text>
+                              <div className="review-kv">
+                                <span>Pricing type</span>
+                                <strong>{reviewValue(row.pricingType)}</strong>
+                              </div>
+                              <div className="review-kv">
+                                <span>Pricing basis</span>
+                                <strong>{reviewValue(row.pricingBasis)}</strong>
+                              </div>
                               {row.pricingType === 'ONE TIME' ? (
-                                <Typography.Text type="secondary">
-                                  Associated fee: {reviewValue(row.feeDefinition)}
-                                </Typography.Text>
+                                <div className="review-kv">
+                                  <span>Associated fee</span>
+                                  <strong>{reviewValue(row.feeDefinition)}</strong>
+                                </div>
                               ) : (
-                                <Typography.Text type="secondary">Frequency: {reviewValue(row.frequency)}</Typography.Text>
+                                <div className="review-kv">
+                                  <span>Frequency</span>
+                                  <strong>{reviewValue(row.frequency)}</strong>
+                                </div>
                               )}
-                              <Typography.Text type="secondary">Tax treatment: {reviewValue(row.taxTreatment)}</Typography.Text>
+                              <div className="review-kv">
+                                <span>Tax treatment</span>
+                                <strong>{reviewValue(row.taxTreatment)}</strong>
+                              </div>
                             </div>
                           </div>
                         ))}
                         <div className="review-item review-pricing-totals">
                           {reviewRecurringTotal > 0 ? (
-                            <div className="price-summary-row is-total">
-                              <Typography.Text strong>Recurring total</Typography.Text>
-                              <Typography.Text strong>{formatPriceAmount(reviewRecurringTotal)}</Typography.Text>
+                            <div className="price-summary-row">
+                              <Typography.Text type="secondary">Recurring total</Typography.Text>
+                              <Typography.Text>{formatPriceAmount(reviewRecurringTotal)}</Typography.Text>
                             </div>
                           ) : null}
                           {reviewOneTimeTotal > 0 ? (
-                            <div className="price-summary-row is-total">
-                              <Typography.Text strong>One-time total</Typography.Text>
-                              <Typography.Text strong>{formatPriceAmount(reviewOneTimeTotal)}</Typography.Text>
+                            <div className="price-summary-row">
+                              <Typography.Text type="secondary">One-time total</Typography.Text>
+                              <Typography.Text>{formatPriceAmount(reviewOneTimeTotal)}</Typography.Text>
                             </div>
                           ) : null}
-                          {reviewRecurringTotal <= 0 && reviewOneTimeTotal <= 0 ? (
+                          {reviewGrandTotal > 0 ? (
+                            <div className="price-summary-row is-total review-grand-total">
+                              <Typography.Text strong>Total price</Typography.Text>
+                              <Typography.Text strong>{formatPriceAmount(reviewGrandTotal)}</Typography.Text>
+                            </div>
+                          ) : (
                             <Typography.Text type="secondary">No priced amounts entered yet.</Typography.Text>
-                          ) : null}
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -3442,7 +3466,7 @@ export function ProductListingsPage() {
                   </section>
 
                   <section className="review-section">
-                    <Typography.Title level={5}>3. Entitlement</Typography.Title>
+                    <Typography.Title level={5}>Entitlement</Typography.Title>
                     {reviewEntitlements.length ? (
                       <div className="review-entitlement-list">
                         {reviewEntitlements.map((row) => (
@@ -3476,7 +3500,7 @@ export function ProductListingsPage() {
                   </section>
 
                   <section className="review-section">
-                    <Typography.Title level={5}>4. Eligibility</Typography.Title>
+                    <Typography.Title level={5}>Eligibility</Typography.Title>
                     <div className="review-item">
                       {reviewEligibilityDetails.map((item) => (
                         <div key={`${item.label}-${item.value}`} className="review-eligibility-block">
@@ -3488,7 +3512,7 @@ export function ProductListingsPage() {
                   </section>
 
                   <section className="review-section">
-                    <Typography.Title level={5}>5. Display</Typography.Title>
+                    <Typography.Title level={5}>Display</Typography.Title>
                     <div className="review-grid">
                       <div className="review-item">
                         <Typography.Text type="secondary">Display name</Typography.Text>
@@ -3538,11 +3562,11 @@ export function ProductListingsPage() {
                       <div className="review-item span-two">
                         <Typography.Text type="secondary">Features</Typography.Text>
                         {reviewFeatures.length ? (
-                          reviewFeatures.map((feature) => (
-                            <Typography.Text key={feature} strong className="review-stack-line">
-                              {feature}
-                            </Typography.Text>
-                          ))
+                          <div className="review-feature-chips">
+                            {reviewFeatures.map((feature) => (
+                              <span key={feature} className="review-feature-chip">{feature}</span>
+                            ))}
+                          </div>
                         ) : (
                           <Typography.Text strong>No features added</Typography.Text>
                         )}
