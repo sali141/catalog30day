@@ -1048,6 +1048,124 @@ function priceSummaryRows(components: PriceComponent[] | undefined) {
       amount,
       pricingType: component.pricingType,
       frequency: component.frequency,
+      pricingBasis: component.pricingBasis,
+      feeDefinition: component.feeDefinition,
+      taxTreatment: component.taxTreatment,
+    }
+  })
+}
+
+function reviewValue(value?: string | number | null, fallback = 'Not set') {
+  if (value == null) return fallback
+  if (typeof value === 'string' && !value.trim()) return fallback
+  return value
+}
+
+function optionLabel(options: Array<{ value: string; label: string }>, value?: string) {
+  if (!value) return undefined
+  return options.find((item) => item.value === value)?.label ?? value
+}
+
+function optionLabels(options: Array<{ value: string; label: string }>, values?: string[]) {
+  if (!values?.length) return []
+  return values.map((value) => optionLabel(options, value) ?? value)
+}
+
+function formatAttributeRule(rule: CustomerAttributeRule): string {
+  const attribute = rule.attribute ?? 'Attribute'
+  const mode = rule.matchMode ?? 'Include'
+  if (attribute === 'Age') {
+    const min = rule.minValue != null ? String(rule.minValue) : '—'
+    const max = rule.maxValue != null ? String(rule.maxValue) : '—'
+    return `${attribute} (${mode}): ${min} – ${max}`
+  }
+  const values = rule.values?.length ? rule.values.join(', ') : 'No values'
+  return `${attribute} (${mode}): ${values}`
+}
+
+function enabledEligibilityDetails(eligibility?: EligibilityFormValues): Array<{ label: string; value: string }> {
+  if (!eligibility) return [{ label: 'Rules', value: 'No eligibility rules configured' }]
+  const rows: Array<{ label: string; value: string }> = []
+
+  if (eligibility.locationAvailabilityEnabled) {
+    const locations = optionLabels(LOCATION_OPTIONS, eligibility.locations)
+    rows.push({
+      label: `Locations (${eligibility.locationCompatibilityMode})`,
+      value: locations.length ? locations.join(', ') : 'All locations',
+    })
+  }
+  if (eligibility.salesChannelAvailabilityEnabled) {
+    const channels = optionLabels(SALES_CHANNEL_OPTIONS, eligibility.salesChannels)
+    rows.push({
+      label: 'Sales channels',
+      value: channels.length ? channels.join(', ') : 'All sales channels',
+    })
+  }
+  if (eligibility.subscriptionControlEnabled) {
+    rows.push({ label: 'Subscription control', value: 'Enabled' })
+  }
+  if (eligibility.purchaseCompatibilityEnabled) {
+    const products = optionLabels(COMPATIBLE_PRODUCT_OPTIONS, eligibility.compatibleProducts)
+    rows.push({
+      label: `Purchase compatibility (${eligibility.purchaseCompatibilityMode})`,
+      value: products.length ? products.join(', ') : 'No products selected',
+    })
+  }
+  if (eligibility.customerEligibilityEnabled) {
+    if (eligibility.useCustomerAttributes) {
+      const rules = (eligibility.attributeRules ?? []).map(formatAttributeRule)
+      rows.push({
+        label: 'Customer attributes',
+        value: rules.length ? rules.join(' · ') : 'No attribute rules',
+      })
+    }
+    if (eligibility.useSegments) {
+      const segments = optionLabels(SEGMENT_OPTIONS, eligibility.segments)
+      rows.push({
+        label: 'Segments',
+        value: segments.length ? segments.join(', ') : 'No segments selected',
+      })
+    }
+  }
+  if (eligibility.customerJourneyEnabled) {
+    const journeys = optionLabels(JOURNEY_OPTIONS, eligibility.journeys)
+    rows.push({
+      label: 'Customer journeys',
+      value: journeys.length ? journeys.join(', ') : 'No journeys selected',
+    })
+  }
+
+  return rows.length
+    ? rows
+    : [{ label: 'Availability', value: 'Open to all eligible customers (no restrictions enabled)' }]
+}
+
+function entitlementReviewRows(
+  entitlements: ListingFormValues['entitlements'] | undefined,
+  items: PickerCatalogItem[],
+) {
+  if (!items.length) return []
+  return items.map((item) => {
+    const serviceTypes = entitlementServicesForCategory(item.category)
+    const serviceRows = serviceTypes.map((serviceType) => {
+      const service = entitlements?.[item.key]?.[serviceType]
+      const thresholdLabel = ENTITLEMENT_THRESHOLD_LABELS[serviceType]
+      const followOnLabel = ENTITLEMENT_FOLLOW_ON_LABELS[serviceType]
+      return {
+        serviceType,
+        title: ENTITLEMENT_PANEL_TITLES[serviceType],
+        allowance: service?.allowance || 'Unlimited',
+        thresholdLabel,
+        threshold: service?.fupThreshold || 'Not selected',
+        followOnLabel,
+        followOn: service?.qosAfterFup || (service?.fupThreshold ? QOS_AFTER_FUP_BY_SERVICE[serviceType] : 'Not set'),
+      }
+    })
+    return {
+      key: item.key,
+      name: item.name,
+      category: item.category,
+      serviceRows,
     }
   })
 }
@@ -2856,7 +2974,18 @@ export function ProductListingsPage() {
     )
   }
 
-  const review = form.getFieldsValue(true)
+  const review = form.getFieldsValue(true) as ListingFormValues
+  const reviewPriceRows = priceSummaryRows(review.priceComponents)
+  const reviewRecurringTotal = reviewPriceRows
+    .filter((row) => row.pricingType !== 'ONE TIME' && row.amount != null)
+    .reduce((sum, row) => sum + Number(row.amount), 0)
+  const reviewOneTimeTotal = reviewPriceRows
+    .filter((row) => row.pricingType === 'ONE TIME' && row.amount != null)
+    .reduce((sum, row) => sum + Number(row.amount), 0)
+  const reviewEntitlements = entitlementReviewRows(review.entitlements, selectedPickerItems)
+  const reviewEligibilityDetails = enabledEligibilityDetails(review.eligibility)
+  const reviewFeatures = (review.features ?? []).map((feature) => feature.trim()).filter(Boolean)
+  const reviewGalleryCount = review.galleryImages?.length ?? 0
 
   return (
     <div className="page-container listing-create-page telco-studio-page">
@@ -3197,84 +3326,229 @@ export function ProductListingsPage() {
             {step === 5 && (
               <Card
                 className="form-card"
-                title={<SectionTitle title="Review" description="Confirm the operator-controlled configuration before saving." />}
+                title={<SectionTitle title="Review" description="Confirm the actual values selected across each step before saving." />}
               >
-                <div className="review-grid">
-                  <div className="review-item">
-                    <Typography.Text type="secondary">Listing</Typography.Text>
-                    <Typography.Text strong>{review.name || 'Not set'}</Typography.Text>
-                    <Typography.Text type="secondary">{review.code || 'No code'}</Typography.Text>
-                  </div>
-                  <div className="review-item">
-                    <Typography.Text type="secondary">
-                      {selectedPickerItems.length > 1 ? 'Products' : 'Product'}
-                    </Typography.Text>
-                    <Typography.Text strong>{selectedItemName || 'Not selected'}</Typography.Text>
-                    <Typography.Text type="secondary">
-                      {selectedPickerItems.length > 1
-                        ? `${selectedPickerItems.length} items selected`
-                        : selectedPickerItem?.kind === 'bundle'
-                          ? 'Bundle'
-                          : selectedPickerItem?.archetype ?? selectedPickerItem?.classification ?? selectedProduct?.archetype ?? selectedCatalogProduct?.typeLabel}
-                    </Typography.Text>
-                  </div>
-                  <div className="review-item">
-                    <Typography.Text type="secondary">Commercial</Typography.Text>
-                    <Typography.Text strong>
-                      {review.priceComponents?.length
-                        ? `${review.priceComponents.length} pricing component${review.priceComponents.length === 1 ? '' : 's'}`
-                        : 'Not set'}
-                    </Typography.Text>
-                    <Typography.Text type="secondary">
-                      {primaryPriceAmount(review.priceComponents) != null
-                        ? `Primary amount: $${Number(primaryPriceAmount(review.priceComponents)).toFixed(2)}`
-                        : null}
-                      {review.paymentModel ? ` · ${review.paymentModel}` : ''}
-                      {review.paymentPolicy ? ` · ${review.paymentPolicy}` : ''}
-                    </Typography.Text>
-                  </div>
-                  <div className="review-item">
-                    <Typography.Text type="secondary">Policies</Typography.Text>
-                    <Typography.Text strong>{review.chargingPolicy || 'Not set'}</Typography.Text>
-                    <Typography.Text type="secondary">
-                      {review.billingPolicy}
-                      {review.prorationPolicy ? ` · ${review.prorationPolicy}` : ''}
-                    </Typography.Text>
-                  </div>
-                  <div className="review-item">
-                    <Typography.Text type="secondary">Customer display</Typography.Text>
-                    <Typography.Text strong>{review.displayName || 'Not set'}</Typography.Text>
-                    <Typography.Text type="secondary">{review.channels?.join(', ')}</Typography.Text>
-                  </div>
-                  <div className="review-item">
-                    <Typography.Text type="secondary">Offer</Typography.Text>
-                    <Typography.Text strong>{review.sellable ? 'Sellable' : 'Not sellable'}</Typography.Text>
-                    <Typography.Text type="secondary">
-                      {review.offerType}
-                      {review.offerSubType ? ` · ${review.offerSubType}` : ''}
-                      {review.offerType === 'BASE_PLAN' && review.minLines != null && review.maxLines != null
-                        ? ` · ${review.minLines === review.maxLines
-                          ? `${review.minLines} line${review.minLines === 1 ? '' : 's'}`
-                          : `${review.minLines}-${review.maxLines} lines`}`
-                        : ''}
-                    </Typography.Text>
-                  </div>
-                  <div className="review-item">
-                    <Typography.Text type="secondary">Availability</Typography.Text>
-                    <Typography.Text strong>
-                      {review.eligibility?.salesChannels?.length
-                        ? `${review.eligibility.salesChannels.length} sales channel${review.eligibility.salesChannels.length === 1 ? '' : 's'}`
-                        : 'All sales channels'}
-                    </Typography.Text>
-                    <Typography.Text type="secondary">
-                      {review.eligibility?.locations?.length
-                        ? `${review.eligibility.locations.length} location${review.eligibility.locations.length === 1 ? '' : 's'}`
-                        : 'All locations'}
-                      {review.eligibility?.journeys?.length
-                        ? ` · ${review.eligibility.journeys.length} journey${review.eligibility.journeys.length === 1 ? '' : 's'}`
-                        : ''}
-                    </Typography.Text>
-                  </div>
+                <div className="review-sections">
+                  <section className="review-section">
+                    <Typography.Title level={5}>1. Offer Details</Typography.Title>
+                    <div className="review-grid">
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Offer title</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.name)}</Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Offer code</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.code, 'No code')}</Typography.Text>
+                      </div>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">
+                          {selectedPickerItems.length > 1 ? 'Selected offers / products' : 'Selected offer / product'}
+                        </Typography.Text>
+                        {selectedPickerItems.length ? (
+                          selectedPickerItems.map((item) => (
+                            <Typography.Text key={item.key} strong className="review-stack-line">
+                              {item.name}
+                              <Typography.Text type="secondary">
+                                {` · ${item.category} · ${item.kind === 'offer' ? 'Offer' : item.kind === 'bundle' ? 'Bundle' : item.archetype ?? item.classification}`}
+                              </Typography.Text>
+                            </Typography.Text>
+                          ))
+                        ) : (
+                          <Typography.Text strong>Not selected</Typography.Text>
+                        )}
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Offer type</Typography.Text>
+                        <Typography.Text strong>{offerTypeTitle(review.offerType ?? selectedOfferType)}</Typography.Text>
+                        <Typography.Text type="secondary">
+                          {review.offerSubType ? `Subtype: ${review.offerSubType}` : 'No subtype'}
+                        </Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Lines / status</Typography.Text>
+                        <Typography.Text strong>
+                          {review.offerType === 'BASE_PLAN' && review.minLines != null && review.maxLines != null
+                            ? `${review.minLines === review.maxLines
+                              ? `${review.minLines} line${review.minLines === 1 ? '' : 's'}`
+                              : `${review.minLines}-${review.maxLines} lines`}`
+                            : 'Not applicable'}
+                        </Typography.Text>
+                        <Typography.Text type="secondary">
+                          {review.sellable ? 'Sellable' : 'Not sellable'} · {reviewValue(review.status, 'Draft')}
+                        </Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Payment policy</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.paymentPolicy)}</Typography.Text>
+                        <Typography.Text type="secondary">{reviewValue(review.paymentModel)}</Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Charging / billing</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.chargingPolicy)}</Typography.Text>
+                        <Typography.Text type="secondary">
+                          {[review.billingPolicy, review.prorationPolicy].filter(Boolean).join(' · ') || 'Not set'}
+                        </Typography.Text>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="review-section">
+                    <Typography.Title level={5}>2. Pricing</Typography.Title>
+                    {reviewPriceRows.length ? (
+                      <div className="review-pricing-list">
+                        {reviewPriceRows.map((row) => (
+                          <div key={row.key} className="review-item review-pricing-item">
+                            <div className="review-pricing-item-header">
+                              <Typography.Text strong>{row.label}</Typography.Text>
+                              <Typography.Text strong>
+                                {row.amount != null ? formatPriceAmount(Number(row.amount)) : '—'}
+                              </Typography.Text>
+                            </div>
+                            <div className="review-field-list">
+                              <Typography.Text type="secondary">Pricing type: {reviewValue(row.pricingType)}</Typography.Text>
+                              <Typography.Text type="secondary">Pricing basis: {reviewValue(row.pricingBasis)}</Typography.Text>
+                              {row.pricingType === 'ONE TIME' ? (
+                                <Typography.Text type="secondary">
+                                  Associated fee: {reviewValue(row.feeDefinition)}
+                                </Typography.Text>
+                              ) : (
+                                <Typography.Text type="secondary">Frequency: {reviewValue(row.frequency)}</Typography.Text>
+                              )}
+                              <Typography.Text type="secondary">Tax treatment: {reviewValue(row.taxTreatment)}</Typography.Text>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="review-item review-pricing-totals">
+                          {reviewRecurringTotal > 0 ? (
+                            <div className="price-summary-row is-total">
+                              <Typography.Text strong>Recurring total</Typography.Text>
+                              <Typography.Text strong>{formatPriceAmount(reviewRecurringTotal)}</Typography.Text>
+                            </div>
+                          ) : null}
+                          {reviewOneTimeTotal > 0 ? (
+                            <div className="price-summary-row is-total">
+                              <Typography.Text strong>One-time total</Typography.Text>
+                              <Typography.Text strong>{formatPriceAmount(reviewOneTimeTotal)}</Typography.Text>
+                            </div>
+                          ) : null}
+                          {reviewRecurringTotal <= 0 && reviewOneTimeTotal <= 0 ? (
+                            <Typography.Text type="secondary">No priced amounts entered yet.</Typography.Text>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <Typography.Text type="secondary">No pricing components configured.</Typography.Text>
+                    )}
+                  </section>
+
+                  <section className="review-section">
+                    <Typography.Title level={5}>3. Entitlement</Typography.Title>
+                    {reviewEntitlements.length ? (
+                      <div className="review-entitlement-list">
+                        {reviewEntitlements.map((row) => (
+                          <div key={row.key} className="review-item">
+                            <Typography.Text type="secondary">{row.category}</Typography.Text>
+                            <Typography.Text strong>{row.name}</Typography.Text>
+                            {row.serviceRows.length ? (
+                              <div className="review-service-list">
+                                {row.serviceRows.map((service) => (
+                                  <div key={service.serviceType} className="review-service-row">
+                                    <Typography.Text strong>{service.title}</Typography.Text>
+                                    <Typography.Text type="secondary">Allowance: {service.allowance}</Typography.Text>
+                                    <Typography.Text type="secondary">
+                                      {service.thresholdLabel}: {service.threshold}
+                                    </Typography.Text>
+                                    <Typography.Text type="secondary">
+                                      {service.followOnLabel}: {service.followOn}
+                                    </Typography.Text>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <Typography.Text type="secondary">No entitlement services</Typography.Text>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <Typography.Text type="secondary">No entitlement configuration available.</Typography.Text>
+                    )}
+                  </section>
+
+                  <section className="review-section">
+                    <Typography.Title level={5}>4. Eligibility</Typography.Title>
+                    <div className="review-item">
+                      {reviewEligibilityDetails.map((item) => (
+                        <div key={`${item.label}-${item.value}`} className="review-eligibility-block">
+                          <Typography.Text type="secondary">{item.label}</Typography.Text>
+                          <Typography.Text strong>{item.value}</Typography.Text>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="review-section">
+                    <Typography.Title level={5}>5. Display</Typography.Title>
+                    <div className="review-grid">
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Display name</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.displayName)}</Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Short description</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.subtitle, 'Not set')}</Typography.Text>
+                      </div>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">Description</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.description, 'Not set')}</Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Listing label</Typography.Text>
+                        <Typography.Text strong>
+                          {review.listingLabelEnabled
+                            ? reviewValue(review.listingLabel, 'Enabled (no label selected)')
+                            : 'Off'}
+                        </Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Product gallery</Typography.Text>
+                        <Typography.Text strong>
+                          {reviewGalleryCount
+                            ? `${reviewGalleryCount} image${reviewGalleryCount === 1 ? '' : 's'} uploaded`
+                            : 'No images uploaded'}
+                        </Typography.Text>
+                        {review.galleryImages?.length ? (
+                          <Typography.Text type="secondary">
+                            Primary: {review.galleryImages[0]?.name || 'Image 1'}
+                          </Typography.Text>
+                        ) : null}
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Product details URL</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.productDetailsUrl)}</Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Terms and conditions URL</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.termsAndConditionsUrl)}</Typography.Text>
+                      </div>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">Banner image URL</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.bannerImageUrl)}</Typography.Text>
+                      </div>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">Features</Typography.Text>
+                        {reviewFeatures.length ? (
+                          reviewFeatures.map((feature) => (
+                            <Typography.Text key={feature} strong className="review-stack-line">
+                              {feature}
+                            </Typography.Text>
+                          ))
+                        ) : (
+                          <Typography.Text strong>No features added</Typography.Text>
+                        )}
+                      </div>
+                    </div>
+                  </section>
                 </div>
                 <Divider />
                 <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>

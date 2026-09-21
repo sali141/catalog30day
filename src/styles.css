@@ -1167,10 +1167,24 @@ body {
   align-items: start;
 }
 
+.review-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--telco-space-lg);
+}
+
+.review-section .ant-typography {
+  margin-top: 0;
+}
+
 .review-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-md);
+}
+
+.review-grid .span-two {
+  grid-column: 1 / -1;
 }
 
 .review-item {
@@ -1181,6 +1195,62 @@ body {
 
 .review-item .ant-typography {
   display: block;
+}
+
+.review-pricing-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.review-pricing-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.review-pricing-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-eligibility-block + .review-eligibility-block {
+  margin-top: 10px;
+}
+
+.review-stack-line {
+  display: block;
+  margin-top: 4px;
+}
+
+.review-field-list,
+.review-service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.review-service-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-secondary);
+}
+
+.review-service-row:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.review-entitlement-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 .empty-state {
