@@ -3395,9 +3395,9 @@ export function ProductListingsPage() {
 
                   <section className="review-section">
                     <Typography.Title level={5}>Pricing</Typography.Title>
-                    {reviewPriceRows.length ? (
-                      <div className="review-pricing-list">
-                        {reviewPriceRows.map((row) => (
+                    <div className="review-pricing-list">
+                      {reviewPriceRows.length ? (
+                        reviewPriceRows.map((row) => (
                           <div key={row.key} className="review-item review-pricing-item">
                             <div className="review-pricing-item-header">
                               <div>
@@ -3436,33 +3436,35 @@ export function ProductListingsPage() {
                               </div>
                             </div>
                           </div>
-                        ))}
-                        <div className="review-item review-pricing-totals">
-                          {reviewRecurringTotal > 0 ? (
-                            <div className="price-summary-row">
-                              <Typography.Text type="secondary">Recurring total</Typography.Text>
-                              <Typography.Text>{formatPriceAmount(reviewRecurringTotal)}</Typography.Text>
-                            </div>
-                          ) : null}
-                          {reviewOneTimeTotal > 0 ? (
-                            <div className="price-summary-row">
-                              <Typography.Text type="secondary">One-time total</Typography.Text>
-                              <Typography.Text>{formatPriceAmount(reviewOneTimeTotal)}</Typography.Text>
-                            </div>
-                          ) : null}
-                          {reviewGrandTotal > 0 ? (
-                            <div className="price-summary-row is-total review-grand-total">
-                              <Typography.Text strong>Total price</Typography.Text>
-                              <Typography.Text strong>{formatPriceAmount(reviewGrandTotal)}</Typography.Text>
-                            </div>
-                          ) : (
-                            <Typography.Text type="secondary">No priced amounts entered yet.</Typography.Text>
-                          )}
+                        ))
+                      ) : (
+                        <div className="review-item">
+                          <Typography.Text type="secondary">No pricing components configured.</Typography.Text>
+                        </div>
+                      )}
+                      <div className="review-total-card">
+                        <div className="review-total-breakdown">
+                          <div className="price-summary-row">
+                            <Typography.Text type="secondary">Recurring</Typography.Text>
+                            <Typography.Text strong>
+                              {formatPriceAmount(reviewRecurringTotal)}
+                            </Typography.Text>
+                          </div>
+                          <div className="price-summary-row">
+                            <Typography.Text type="secondary">One-time</Typography.Text>
+                            <Typography.Text strong>
+                              {formatPriceAmount(reviewOneTimeTotal)}
+                            </Typography.Text>
+                          </div>
+                        </div>
+                        <div className="review-total-main">
+                          <Typography.Text type="secondary">Total price</Typography.Text>
+                          <Typography.Title level={3} className="review-total-value">
+                            {formatPriceAmount(reviewGrandTotal)}
+                          </Typography.Title>
                         </div>
                       </div>
-                    ) : (
-                      <Typography.Text type="secondary">No pricing components configured.</Typography.Text>
-                    )}
+                    </div>
                   </section>
 
                   <section className="review-section">
@@ -3519,14 +3521,6 @@ export function ProductListingsPage() {
                         <Typography.Text strong>{reviewValue(review.displayName)}</Typography.Text>
                       </div>
                       <div className="review-item">
-                        <Typography.Text type="secondary">Short description</Typography.Text>
-                        <Typography.Text strong>{reviewValue(review.subtitle, 'Not set')}</Typography.Text>
-                      </div>
-                      <div className="review-item span-two">
-                        <Typography.Text type="secondary">Description</Typography.Text>
-                        <Typography.Text strong>{reviewValue(review.description, 'Not set')}</Typography.Text>
-                      </div>
-                      <div className="review-item">
                         <Typography.Text type="secondary">Listing label</Typography.Text>
                         <Typography.Text strong>
                           {review.listingLabelEnabled
@@ -3534,30 +3528,13 @@ export function ProductListingsPage() {
                             : 'Off'}
                         </Typography.Text>
                       </div>
-                      <div className="review-item">
-                        <Typography.Text type="secondary">Product gallery</Typography.Text>
-                        <Typography.Text strong>
-                          {reviewGalleryCount
-                            ? `${reviewGalleryCount} image${reviewGalleryCount === 1 ? '' : 's'} uploaded`
-                            : 'No images uploaded'}
-                        </Typography.Text>
-                        {review.galleryImages?.length ? (
-                          <Typography.Text type="secondary">
-                            Primary: {review.galleryImages[0]?.name || 'Image 1'}
-                          </Typography.Text>
-                        ) : null}
-                      </div>
-                      <div className="review-item">
-                        <Typography.Text type="secondary">Product details URL</Typography.Text>
-                        <Typography.Text strong>{reviewValue(review.productDetailsUrl)}</Typography.Text>
-                      </div>
-                      <div className="review-item">
-                        <Typography.Text type="secondary">Terms and conditions URL</Typography.Text>
-                        <Typography.Text strong>{reviewValue(review.termsAndConditionsUrl)}</Typography.Text>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">Short description</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.subtitle, 'Not set')}</Typography.Text>
                       </div>
                       <div className="review-item span-two">
-                        <Typography.Text type="secondary">Banner image URL</Typography.Text>
-                        <Typography.Text strong>{reviewValue(review.bannerImageUrl)}</Typography.Text>
+                        <Typography.Text type="secondary">Description</Typography.Text>
+                        <Typography.Text strong>{reviewValue(review.description, 'Not set')}</Typography.Text>
                       </div>
                       <div className="review-item span-two">
                         <Typography.Text type="secondary">Features</Typography.Text>
@@ -3570,6 +3547,44 @@ export function ProductListingsPage() {
                         ) : (
                           <Typography.Text strong>No features added</Typography.Text>
                         )}
+                      </div>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">Product gallery</Typography.Text>
+                        {reviewGalleryCount ? (
+                          <>
+                            <Typography.Text strong>
+                              {reviewGalleryCount} image{reviewGalleryCount === 1 ? '' : 's'}
+                            </Typography.Text>
+                            <div className="review-gallery-thumbs">
+                              {review.galleryImages.map((image, index) => (
+                                <div key={image.uid} className="review-gallery-thumb">
+                                  <img src={image.url} alt={image.name || `Gallery image ${index + 1}`} />
+                                  {index === 0 ? <span className="review-gallery-primary">Primary</span> : null}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <Typography.Text strong>No images uploaded</Typography.Text>
+                        )}
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Product details URL</Typography.Text>
+                        <Typography.Text strong className="review-url">
+                          {reviewValue(review.productDetailsUrl)}
+                        </Typography.Text>
+                      </div>
+                      <div className="review-item">
+                        <Typography.Text type="secondary">Terms and conditions URL</Typography.Text>
+                        <Typography.Text strong className="review-url">
+                          {reviewValue(review.termsAndConditionsUrl)}
+                        </Typography.Text>
+                      </div>
+                      <div className="review-item span-two">
+                        <Typography.Text type="secondary">Banner image URL</Typography.Text>
+                        <Typography.Text strong className="review-url">
+                          {reviewValue(review.bannerImageUrl)}
+                        </Typography.Text>
                       </div>
                     </div>
                   </section>
