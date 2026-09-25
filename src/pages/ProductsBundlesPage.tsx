@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
+  CarOutlined,
   DownOutlined,
   FilterOutlined,
+  GiftOutlined,
+  MobileOutlined,
   MoreOutlined,
   PlusOutlined,
+  SafetyCertificateOutlined,
   SearchOutlined,
 } from '@ant-design/icons'
 import {
@@ -15,7 +19,6 @@ import {
   Form,
   Input,
   Modal,
-  Segmented,
   Select,
   Space,
   Table,
@@ -28,6 +31,44 @@ import { initialCatalogRows, type CatalogTableRow } from '../data'
 
 const { Text, Title } = Typography
 type CatalogTab = 'all' | 'telco' | 'merchandise' | 'bundles'
+type CreateProductKind = 'Telco' | 'Insurance' | 'Travel' | 'Merchandise'
+
+const CREATE_PRODUCT_KIND_OPTIONS: {
+  value: CreateProductKind
+  title: string
+  description: string
+  icon: ReactNode
+  tone: string
+}[] = [
+  {
+    value: 'Telco',
+    title: 'Telco',
+    description: 'Plans, add-ons, and connectivity products',
+    icon: <MobileOutlined />,
+    tone: 'telco',
+  },
+  {
+    value: 'Insurance',
+    title: 'Insurance',
+    description: 'Protection and coverage products',
+    icon: <SafetyCertificateOutlined />,
+    tone: 'insurance',
+  },
+  {
+    value: 'Travel',
+    title: 'Travel',
+    description: 'Travel packs and journey products',
+    icon: <CarOutlined />,
+    tone: 'travel',
+  },
+  {
+    value: 'Merchandise',
+    title: 'Merchandise',
+    description: 'Physical and digital retail products',
+    icon: <GiftOutlined />,
+    tone: 'merchandise',
+  },
+]
 
 const statusColor = (status: string) =>
   status === 'Active'
@@ -40,14 +81,20 @@ const statusColor = (status: string) =>
           ? 'red'
           : undefined
 
-export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => void }) {
+export function ProductsBundlesPage({
+  onCreateTelco,
+  onCreateProductNew,
+}: {
+  onCreateTelco: () => void
+  onCreateProductNew?: () => void
+}) {
   const { message } = App.useApp()
   const [tab, setTab] = useState<CatalogTab>('all')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('All')
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [createKind, setCreateKind] = useState<'Telco' | 'Merchandise'>('Telco')
+  const [createKind, setCreateKind] = useState<CreateProductKind>('Telco')
   const [createCategory, setCreateCategory] = useState<string>()
   const [createSchema, setCreateSchema] = useState<string>()
 
@@ -95,7 +142,14 @@ export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => vo
 
   const columns: ColumnsType<CatalogTableRow> = [
     {
-      title: tab === 'bundles' ? 'Bundle name' : 'Name',
+      title: 'ID',
+      key: 'id',
+      fixed: 'left',
+      width: 72,
+      render: (_: unknown, row) => rows.findIndex((item) => item.key === row.key) + 1,
+    },
+    {
+      title: tab === 'bundles' ? 'Bundle name' : 'Product Name',
       dataIndex: 'name',
       fixed: 'left',
       width: 280,
@@ -107,12 +161,6 @@ export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => vo
       ),
     },
     ...(tab === 'all' ? [
-      {
-        title: 'Kind',
-        dataIndex: 'kind',
-        width: 110,
-        render: (kind: CatalogTableRow['kind']) => kind === 'bundle' ? <Tag color="blue">Bundle</Tag> : <Tag>Product</Tag>,
-      },
       {
         title: 'Type',
         dataIndex: 'typeLabel',
@@ -199,6 +247,7 @@ export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => vo
           menu={{
             items: [
               { key: 'product', icon: <PlusOutlined />, label: 'Create product' },
+              { key: 'product-new', icon: <PlusOutlined />, label: 'Create Product New' },
               { key: 'bundle', icon: <PlusOutlined />, label: 'Create bundle' },
             ],
             onClick: ({ key }) => {
@@ -207,8 +256,11 @@ export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => vo
                 setCreateCategory(undefined)
                 setCreateSchema(undefined)
                 setCreateOpen(true)
+              } else if (key === 'product-new') {
+                onCreateProductNew?.()
+              } else {
+                message.info('Open the existing bundle flow in the host application')
               }
-              else message.info('Open the existing bundle flow in the host application')
             },
           }}
         >
@@ -278,6 +330,7 @@ export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => vo
         title="Create product"
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
+        width={640}
         okButtonProps={{
           disabled: createKind === 'Merchandise' && (!createCategory || !createSchema),
         }}
@@ -287,24 +340,39 @@ export function ProductsBundlesPage({ onCreateTelco }: { onCreateTelco: () => vo
             onCreateTelco()
             return
           }
-          message.success('Continue to the merchandise product form')
+          if (createKind === 'Merchandise') {
+            message.success('Continue to the merchandise product form')
+            return
+          }
+          message.info(`Continue to the ${createKind.toLowerCase()} product form`)
         }}
         okText="Continue"
       >
         <Form layout="vertical" requiredMark={false}>
-          <Form.Item label="Product type">
-            <Segmented
-              value={createKind}
-              options={[
-                { label: 'Telco', value: 'Telco' },
-                { label: 'Merchandise', value: 'Merchandise' },
-              ]}
-              onChange={(value) => {
-                setCreateKind(value as typeof createKind)
-                setCreateCategory(undefined)
-                setCreateSchema(undefined)
-              }}
-            />
+          <Form.Item label="Business Domain">
+            <div className="create-product-kind-grid">
+              {CREATE_PRODUCT_KIND_OPTIONS.map((option) => {
+                const selected = createKind === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`create-product-kind-card${selected ? ' selected' : ''}`}
+                    onClick={() => {
+                      setCreateKind(option.value)
+                      setCreateCategory(undefined)
+                      setCreateSchema(undefined)
+                    }}
+                  >
+                    <span className={`create-product-kind-icon tone-${option.tone}`}>
+                      {option.icon}
+                    </span>
+                    <span className="create-product-kind-title">{option.title}</span>
+                    <span className="create-product-kind-description">{option.description}</span>
+                  </button>
+                )
+              })}
+            </div>
           </Form.Item>
           {createKind === 'Merchandise' ? (
             <>

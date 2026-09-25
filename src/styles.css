@@ -1628,6 +1628,85 @@ body {
   color: var(--color-primary) !important;
 }
 
+.create-product-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.create-product-kind-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  min-height: 128px;
+  padding: 16px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.create-product-kind-card:hover {
+  border-color: var(--color-primary);
+}
+
+.create-product-kind-card.selected {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.create-product-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  font-size: 20px;
+  border-radius: 10px;
+}
+
+.create-product-kind-icon.tone-telco {
+  color: #1677ff;
+  background: #e6f4ff;
+}
+
+.create-product-kind-icon.tone-insurance {
+  color: #08979c;
+  background: #e6fffb;
+}
+
+.create-product-kind-icon.tone-travel {
+  color: #d46b08;
+  background: #fff7e6;
+}
+
+.create-product-kind-icon.tone-merchandise {
+  color: #722ed1;
+  background: #f9f0ff;
+}
+
+.create-product-kind-title {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.create-product-kind-description {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
 @media (max-width: 991px) {
   .product-create-flow-layout {
     grid-template-columns: 1fr;

@@ -1,0 +1,479 @@
+{
+  "page": "Create Product",
+  "source": "src/pages/CreateProductPage.tsx",
+  "steps": [
+    "Details",
+    "Service configuration",
+    "Pricing",
+    "Notifications",
+    "Review"
+  ],
+  "fields": {
+    "details": {
+      "productDetails": [
+        {
+          "name": "name",
+          "label": "Product name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "productCode",
+          "label": "Product Code",
+          "type": "text",
+          "required": true,
+          "row": "productCode_productStatus"
+        },
+        {
+          "name": "productStatus",
+          "label": "Product Status",
+          "type": "select",
+          "required": true,
+          "options": ["Draft", "Active", "Published"],
+          "default": "Draft",
+          "row": "productCode_productStatus"
+        },
+        {
+          "name": "description",
+          "label": "Description",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "name": "lineOfBusiness",
+          "label": "Line of Business",
+          "type": "select",
+          "required": true,
+          "placeholder": "Select",
+          "options": ["Telco", "Insurance", "Devices", "Merchandise"],
+          "row": "lineOfBusiness_productType",
+          "clearsOnChange": ["productType", "telcoAttributes", "insuranceAttributes", "devicesAttributes", "merchandiseAttributes"]
+        },
+        {
+          "name": "productType",
+          "label": "Product Type",
+          "type": "select",
+          "required": true,
+          "dependsOn": "lineOfBusiness",
+          "row": "lineOfBusiness_productType",
+          "optionsByLineOfBusiness": {
+            "Telco": ["Postpaid Plan", "Prepaid Plan", "Broadband Plan", "IoT Plan", "Roaming Pack"],
+            "Insurance": ["Device", "Life", "Term", "Vehicle Motor", "Health", "Travel", "Home Protection"],
+            "Devices": ["Smartphone", "Tablet", "Laptop", "Wearable", "Router"],
+            "Merchandise": ["Apparel", "Accessories", "Home Goods", "Collectibles"]
+          }
+        }
+      ],
+      "lobAttributes": {
+        "visibleWhen": "lineOfBusiness is selected",
+        "Telco": [
+          {
+            "name": "telcoAttributes.serviceCategories",
+            "label": "Service Categories / Capabilities Included",
+            "type": "multi-select",
+            "required": false,
+            "options": ["Data", "Voice", "SMS", "Roaming", "IDD", "VoLTE", "VoWiFi", "Hotspot"]
+          },
+          {
+            "name": "telcoAttributes.networkTechnology",
+            "label": "Network Technology",
+            "type": "multi-select",
+            "required": false,
+            "options": ["2G", "3G", "4G", "5G"]
+          },
+          {
+            "name": "telcoAttributes.connectionType",
+            "label": "Connection Type",
+            "type": "select",
+            "required": false,
+            "options": ["Mobile", "Fixed Broadband", "Fixed Voice", "IoT"]
+          },
+          {
+            "name": "telcoAttributes.simMechanism",
+            "label": "SIM / Connection Mechanism",
+            "type": "select",
+            "required": false,
+            "options": ["Physical SIM", "eSIM", "SIM-less", "Embedded (embedded/IoT)"]
+          },
+          {
+            "name": "telcoAttributes.qosProfiles",
+            "label": "Supported QoS Profiles",
+            "type": "multi-select",
+            "required": false,
+            "options": ["Standard", "Premium", "Priority"]
+          }
+        ],
+        "Insurance": [
+          {
+            "name": "insuranceAttributes.benefitCategories",
+            "label": "Benefit Categories Included",
+            "type": "multi-select",
+            "required": false,
+            "options": [
+              "Death Benefit",
+              "Critical Illness Benefit",
+              "Maturity Benefit",
+              "Accidental Disability Benefit",
+              "Hospitalization Benefit",
+              "Connectivity Outage Coverage",
+              "Equipment Damage",
+              "Equipment Theft",
+              "Accidental Damage",
+              "Liquid Damage",
+              "Theft",
+              "Mechanical Breakdown"
+            ]
+          },
+          {
+            "name": "insuranceAttributes.coverageBasis",
+            "label": "Coverage Basis",
+            "type": "select",
+            "required": false,
+            "options": [
+              { "value": "Indemnity", "label": "Indemnity (reimburse actual loss)" },
+              { "value": "Benefit", "label": "Benefit (fixed payout)" }
+            ]
+          },
+          {
+            "name": "insuranceAttributes.underwritingBasis",
+            "label": "Underwriting Basis",
+            "type": "select",
+            "required": false,
+            "options": ["Individual", "Group"]
+          },
+          {
+            "name": "insuranceAttributes.claimSettlementBasis",
+            "label": "Claim Settlement Basis",
+            "type": "select",
+            "required": false,
+            "options": ["Cashless", "Reimbursement", "Both"]
+          }
+        ],
+        "Devices": [
+          {
+            "name": "devicesAttributes.brand",
+            "label": "Brand",
+            "type": "select",
+            "required": false,
+            "options": ["Apple", "Samsung", "Google", "Xiaomi", "Huawei", "Other"]
+          },
+          {
+            "name": "devicesAttributes.model",
+            "label": "Model",
+            "type": "text",
+            "required": false,
+            "placeholder": "e.g. Galaxy S25, iPhone 17"
+          },
+          {
+            "name": "devicesAttributes.storageVariant",
+            "label": "Storage Variant",
+            "type": "multi-select",
+            "required": false,
+            "options": ["128GB", "256GB", "512GB", "1TB"]
+          },
+          {
+            "name": "devicesAttributes.colorVariant",
+            "label": "Color Variant",
+            "type": "text",
+            "required": false
+          },
+          {
+            "name": "devicesAttributes.connectivityType",
+            "label": "Connectivity Type",
+            "type": "select",
+            "required": false,
+            "options": ["Wi-Fi only", "Wi-Fi + Cellular", "5G-enabled"]
+          },
+          {
+            "name": "devicesAttributes.operatingSystem",
+            "label": "Operating System",
+            "type": "select",
+            "required": false,
+            "options": ["iOS", "Android", "Windows", "Other"]
+          },
+          {
+            "name": "devicesAttributes.screenSizeFormFactor",
+            "label": "Screen Size / Form Factor",
+            "type": "text",
+            "required": false,
+            "placeholder": "e.g. 6.1 inch / foldable"
+          }
+        ],
+        "Merchandise": [
+          {
+            "name": "merchandiseAttributes.brand",
+            "label": "Brand",
+            "type": "text",
+            "required": false
+          },
+          {
+            "name": "merchandiseAttributes.materialComposition",
+            "label": "Material / Composition",
+            "type": "text",
+            "required": false,
+            "placeholder": "e.g. Cotton, Leather, Ceramic"
+          },
+          {
+            "name": "merchandiseAttributes.sizeVariant",
+            "label": "Size Variant",
+            "type": "multi-select",
+            "required": false,
+            "options": ["XS", "S", "M", "L", "XL", "XXL"]
+          },
+          {
+            "name": "merchandiseAttributes.colorVariant",
+            "label": "Color Variant",
+            "type": "text",
+            "required": false
+          },
+          {
+            "name": "merchandiseAttributes.careHandlingRequirements",
+            "label": "Care / Handling Requirements",
+            "type": "textarea",
+            "required": false,
+            "placeholder": "e.g. dry clean only"
+          }
+        ]
+      }
+    },
+    "serviceConfiguration": {
+      "servicesIncluded": [
+        {
+          "name": "selectedSubtypes",
+          "label": "Service types",
+          "type": "tree-select",
+          "required": true,
+          "derivedFields": ["services", "serviceSubtypes"],
+          "options": {
+            "Data": ["Local Data", "Roaming Data"],
+            "Voice": ["Local Voice", "Roaming Voice"],
+            "SMS": ["Local SMS", "Roaming SMS"]
+          }
+        }
+      ],
+      "allowances": {
+        "visibleWhen": "selected subtype is included",
+        "Local Data": [
+          { "name": "allowances.Local Data.rollover", "label": "Rollover", "type": "switch", "required": false },
+          { "name": "allowances.Local Data.unlimited", "label": "Unlimited", "type": "switch", "required": false },
+          { "name": "allowances.Local Data.amount", "label": "Data", "type": "number", "required": true, "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Local Data.unit", "label": "Unit", "type": "select", "required": true, "options": ["GB", "MB"], "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Local Data.dataSharing", "label": "Data Sharing", "type": "switch", "required": false },
+          { "name": "allowances.Local Data.productSpeed", "label": "Product Speed", "type": "select", "required": false, "options": ["Uncapped", "Capped", "Throttled"] },
+          { "name": "allowances.Local Data.listOfApps", "label": "List of Apps", "type": "select", "required": false, "options": ["All", "Social", "Streaming", "Messaging"] }
+        ],
+        "Roaming Data": [
+          { "name": "allowances.Roaming Data.unlimited", "label": "Unlimited", "type": "switch", "required": false },
+          { "name": "allowances.Roaming Data.amount", "label": "Data", "type": "number", "required": true, "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Roaming Data.unit", "label": "Unit", "type": "select", "required": true, "options": ["GB", "MB"], "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Roaming Data.dataSharing", "label": "Data Sharing", "type": "switch", "required": false },
+          { "name": "allowances.Roaming Data.productSpeed", "label": "Product Speed", "type": "select", "required": false, "options": ["Uncapped", "Capped", "Throttled"] },
+          { "name": "allowances.Roaming Data.listOfApps", "label": "List of Apps", "type": "select", "required": false, "options": ["All", "Social", "Streaming", "Messaging"] },
+          {
+            "name": "allowances.Roaming Data.countries",
+            "label": "Select Countries",
+            "type": "multi-select",
+            "required": true,
+            "options": ["Australia", "France", "Germany", "India", "Japan", "Singapore", "Sri Lanka", "United Kingdom", "United States"]
+          }
+        ],
+        "Local Voice": [
+          { "name": "allowances.Local Voice.unlimited", "label": "Unlimited", "type": "switch", "required": false },
+          { "name": "allowances.Local Voice.amount", "label": "Voice", "type": "number", "required": true, "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Local Voice.unit", "label": "Unit", "type": "select", "required": true, "options": ["Minutes"], "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Local Voice.voiceSharing", "label": "Voice Sharing", "type": "switch", "required": false }
+        ],
+        "Roaming Voice": [
+          { "name": "allowances.Roaming Voice.unlimited", "label": "Unlimited", "type": "switch", "required": false },
+          { "name": "allowances.Roaming Voice.amount", "label": "Voice", "type": "number", "required": true, "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Roaming Voice.unit", "label": "Unit", "type": "select", "required": true, "options": ["Minutes"], "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Roaming Voice.voiceSharing", "label": "Voice Sharing", "type": "switch", "required": false },
+          {
+            "name": "allowances.Roaming Voice.countries",
+            "label": "Select Countries",
+            "type": "multi-select",
+            "required": true,
+            "options": ["Australia", "France", "Germany", "India", "Japan", "Singapore", "Sri Lanka", "United Kingdom", "United States"]
+          }
+        ],
+        "Local SMS": [
+          { "name": "allowances.Local SMS.unlimited", "label": "Unlimited", "type": "switch", "required": false },
+          { "name": "allowances.Local SMS.amount", "label": "SMS", "type": "number", "required": true, "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Local SMS.smsSharing", "label": "SMS Sharing", "type": "switch", "required": false }
+        ],
+        "Roaming SMS": [
+          { "name": "allowances.Roaming SMS.unlimited", "label": "Unlimited", "type": "switch", "required": false },
+          { "name": "allowances.Roaming SMS.amount", "label": "SMS", "type": "number", "required": true, "hiddenWhen": "unlimited = true" },
+          { "name": "allowances.Roaming SMS.smsSharing", "label": "SMS Sharing", "type": "switch", "required": false },
+          {
+            "name": "allowances.Roaming SMS.countries",
+            "label": "Select Countries",
+            "type": "multi-select",
+            "required": true,
+            "options": ["Australia", "France", "Germany", "India", "Japan", "Singapore", "Sri Lanka", "United Kingdom", "United States"]
+          }
+        ]
+      }
+    },
+    "pricing": [
+      {
+        "name": "basePrice",
+        "label": "Base price",
+        "type": "number",
+        "required": false,
+        "prefix": "$",
+        "precision": 2,
+        "min": 0
+      }
+    ],
+    "notifications": [
+      {
+        "name": "thresholdNotifications.100 MB.enabled",
+        "label": "Threshold Notification Data — 100 MB enabled",
+        "type": "switch",
+        "required": false
+      },
+      {
+        "name": "thresholdNotifications.100 MB.template",
+        "label": "Threshold Notification Data — 100 MB template",
+        "type": "text",
+        "required": false,
+        "default": "usage_notification_addon_data"
+      },
+      {
+        "name": "thresholdNotifications.512 MB.enabled",
+        "label": "Threshold Notification Data — 512 MB enabled",
+        "type": "switch",
+        "required": false
+      },
+      {
+        "name": "thresholdNotifications.512 MB.template",
+        "label": "Threshold Notification Data — 512 MB template",
+        "type": "text",
+        "required": false,
+        "default": "usage_notification_addon_data"
+      },
+      {
+        "name": "thresholdNotifications.1 GB.enabled",
+        "label": "Threshold Notification Data — 1 GB enabled",
+        "type": "switch",
+        "required": false
+      },
+      {
+        "name": "thresholdNotifications.1 GB.template",
+        "label": "Threshold Notification Data — 1 GB template",
+        "type": "text",
+        "required": false,
+        "default": "usage_notification_addon_data"
+      },
+      {
+        "name": "subscriptionNotification.enabled",
+        "label": "Subscription notification enabled",
+        "type": "switch",
+        "required": false,
+        "default": true
+      },
+      {
+        "name": "subscriptionNotification.template",
+        "label": "Subscription notification template",
+        "type": "text",
+        "required": false,
+        "default": "addon_subscribe"
+      },
+      {
+        "name": "fairUseNotification",
+        "label": "FUP limit — Notify when full-speed data is exhausted",
+        "type": "switch",
+        "required": false,
+        "default": false
+      }
+    ]
+  },
+  "samplePayload": {
+    "name": "Local Data 100GB",
+    "productCode": "PRD-100GB-LOCAL",
+    "description": "High-value local data plan for catalog management.",
+    "productStatus": "Draft",
+    "lineOfBusiness": "Telco",
+    "productType": "Postpaid Plan",
+    "telcoAttributes": {
+      "serviceCategories": ["Data", "Voice", "SMS"],
+      "networkTechnology": ["4G", "5G"],
+      "connectionType": "Mobile",
+      "simMechanism": "eSIM",
+      "qosProfiles": ["Standard"]
+    },
+    "insuranceAttributes": null,
+    "devicesAttributes": null,
+    "merchandiseAttributes": null,
+    "services": ["Data", "Voice", "SMS"],
+    "serviceSubtypes": {
+      "Data": ["Local Data", "Roaming Data"],
+      "Voice": ["Local Voice", "Roaming Voice"],
+      "SMS": ["Local SMS", "Roaming SMS"]
+    },
+    "selectedSubtypes": [
+      "Local Data",
+      "Roaming Data",
+      "Local Voice",
+      "Roaming Voice",
+      "Local SMS",
+      "Roaming SMS"
+    ],
+    "allowances": {
+      "Local Data": {
+        "unlimited": false,
+        "rollover": true,
+        "amount": 100,
+        "unit": "GB",
+        "dataSharing": false,
+        "productSpeed": "Uncapped",
+        "listOfApps": "All"
+      },
+      "Roaming Data": {
+        "unlimited": false,
+        "amount": 5,
+        "unit": "GB",
+        "dataSharing": false,
+        "productSpeed": "Uncapped",
+        "listOfApps": "All",
+        "countries": ["Singapore", "United Kingdom"]
+      },
+      "Local Voice": {
+        "unlimited": false,
+        "amount": 1000,
+        "unit": "Minutes",
+        "voiceSharing": false
+      },
+      "Roaming Voice": {
+        "unlimited": false,
+        "amount": 100,
+        "unit": "Minutes",
+        "voiceSharing": false,
+        "countries": ["Singapore"]
+      },
+      "Local SMS": {
+        "unlimited": false,
+        "amount": 1000,
+        "smsSharing": false
+      },
+      "Roaming SMS": {
+        "unlimited": false,
+        "amount": 100,
+        "smsSharing": false,
+        "countries": ["Singapore"]
+      }
+    },
+    "basePrice": 39.9,
+    "thresholdNotifications": {
+      "100 MB": { "enabled": false, "template": "usage_notification_addon_data" },
+      "512 MB": { "enabled": false, "template": "usage_notification_addon_data" },
+      "1 GB": { "enabled": false, "template": "usage_notification_addon_data" }
+    },
+    "subscriptionNotification": {
+      "enabled": true,
+      "template": "addon_subscribe"
+    },
+    "fairUseNotification": true
+  }
+}

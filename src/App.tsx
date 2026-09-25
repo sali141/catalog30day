@@ -9,11 +9,12 @@ import { Button, Layout, Menu } from 'antd'
 import { ProductsBundlesPage } from './pages/ProductsBundlesPage'
 import { ProductListingsPage } from './pages/ProductListingsPage'
 import { TelcoProductFlowPage } from './pages/TelcoProductFlowPage'
+import { CreateProductPage } from './pages/CreateProductPage'
 import circlesLogo from './assets/circles-logo.png'
 
 const { Sider, Content } = Layout
 
-type PageKey = 'products' | 'listings' | 'telco-create'
+type PageKey = 'products' | 'listings' | 'telco-create' | 'product-create'
 
 const menuItems = [
   {
@@ -53,7 +54,7 @@ export default function CatalogApp() {
         </div>
         <Menu
           mode="inline"
-          selectedKeys={[page === 'telco-create' ? 'products' : page]}
+          selectedKeys={[page === 'telco-create' || page === 'product-create' ? 'products' : page]}
           items={menuItems}
           onClick={({ key }) => setPage(key as PageKey)}
         />
@@ -61,10 +62,21 @@ export default function CatalogApp() {
 
       <Layout>
         <Content className="app-content">
-          {page === 'products' && <ProductsBundlesPage onCreateTelco={() => setPage('telco-create')} />}
+          {page === 'products' && (
+            <ProductsBundlesPage
+              onCreateTelco={() => setPage('telco-create')}
+              onCreateProductNew={() => setPage('product-create')}
+            />
+          )}
           {page === 'listings' && <ProductListingsPage />}
           {page === 'telco-create' && (
             <TelcoProductFlowPage
+              onBack={() => setPage('products')}
+              onContinueToListing={() => setPage('listings')}
+            />
+          )}
+          {page === 'product-create' && (
+            <CreateProductPage
               onBack={() => setPage('products')}
               onContinueToListing={() => setPage('listings')}
             />
